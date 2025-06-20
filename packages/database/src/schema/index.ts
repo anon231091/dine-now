@@ -48,7 +48,9 @@ export const staffRoleEnum = pgEnum('staff_role', [
 export const restaurants = pgTable('restaurants', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 100 }).notNull(),
+  nameKh: varchar('name_kh', { length: 100 }),
   description: text('description'),
+  descriptionKh: text('description_kh'),
   address: text('address').notNull(),
   phoneNumber: varchar('phone_number', { length: 20 }).notNull(),
   isActive: boolean('is_active').notNull().default(true),

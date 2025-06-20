@@ -68,7 +68,7 @@ export const api = {
   restaurants: {
     getAll: () => apiClient.get('/restaurants'),
     getById: (id: string) => apiClient.get(`/restaurants/${id}`),
-    getByQR: (qrCode: string) => apiClient.get(`/restaurants/table/qr/${qrCode}`),
+    getByTableId: (tableId: string) => apiClient.get(`/restaurants/table/${tableId}`),
     getTables: (id: string) => apiClient.get(`/restaurants/${id}/tables`),
     getKitchenStatus: (id: string) => apiClient.get(`/restaurants/${id}/kitchen-status`),
     getAnalytics: (id: string, params: { dateFrom: string; dateTo: string }) => 
@@ -120,11 +120,11 @@ export const useRestaurants = () => {
   });
 };
 
-export const useRestaurantByQR = (qrCode: string) => {
+export const useRestaurantByTableId = (tableId: string) => {
   return useQuery({
-    queryKey: ['restaurant', 'qr', qrCode],
-    queryFn: () => api.restaurants.getByQR(qrCode),
-    enabled: !!qrCode,
+    queryKey: ['restaurant', 'table', tableId],
+    queryFn: () => api.restaurants.getByTableId(tableId),
+    enabled: !!tableId,
     retry: 1,
   });
 };
@@ -219,10 +219,7 @@ export const useAuth = () => {
     queryKey: ['auth-verify'],
     queryFn: api.auth.verify,
     enabled: !!useAuthStore.getState().token,
-    retry: false,
-    onError: () => {
-      useAuthStore.getState().logout();
-    },
+    retry: false
   });
 
   return {

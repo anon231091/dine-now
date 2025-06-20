@@ -14,8 +14,8 @@ import {
 import { Minus, Plus, Clock, X } from 'lucide-react';
 import { MenuItem, SpiceLevel, ItemSize, formatPrice } from '@dine-now/shared';
 import { useCartStore, useUIStore } from '../store';
-import { useTelegram } from '../providers/TelegramProvider';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 
 interface MenuItemModalProps {
   item: MenuItem;
@@ -26,12 +26,11 @@ interface MenuItemModalProps {
 
 export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModalProps) {
   const [quantity, setQuantity] = useState(1);
-  const [selectedSize, setSelectedSize] = useState<ItemSize>('medium');
-  const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<SpiceLevel>('none');
+  const [selectedSize, setSelectedSize] = useState<ItemSize>(ItemSize.MEDIUM);
+  const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<SpiceLevel>(SpiceLevel.NONE);
   const [notes, setNotes] = useState('');
   
   const { addItem } = useCartStore();
-  const { impactHaptic, notificationHaptic } = useTelegram();
 
   const getItemName = () => {
     if (language === 'km' && item.nameKh) {
@@ -55,13 +54,12 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
     }
   };
 
-  const finalPrice = parseFloat(item.price) * getSizePriceMultiplier(selectedSize);
+  const finalPrice = item.price * getSizePriceMultiplier(selectedSize);
   const totalPrice = finalPrice * quantity;
 
   const handleQuantityChange = (delta: number) => {
     const newQuantity = Math.max(1, Math.min(10, quantity + delta));
     setQuantity(newQuantity);
-    impactHaptic('light');
   };
 
   const handleAddToCart = () => {
@@ -71,14 +69,13 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
     }
 
     addItem({
-      menuItem: { ...item, price: finalPrice.toString() },
+      menuItem: { ...item, price: finalPrice },
       quantity,
       size: selectedSize,
       spiceLevel: selectedSpiceLevel,
       notes: notes.trim() || undefined,
     });
 
-    notificationHaptic('success');
     toast.success(
       language === 'km' 
         ? `បានបន្ថែម ${getItemName()} ចូលក្នុងការ៉ុតហើយ`
@@ -88,17 +85,17 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
   };
 
   const spiceLevelOptions = [
-    { value: 'none', label: language === 'km' ? 'មិនហឹរ' : 'No Spice' },
-    { value: 'mild', label: language === 'km' ? 'ហឹរបន្តិច' : 'Mild 🌶️' },
-    { value: 'medium', label: language === 'km' ? 'ហឹរមធ្យម' : 'Medium 🌶️🌶️' },
-    { value: 'spicy', label: language === 'km' ? 'ហឹរ' : 'Spicy 🌶️🌶️🌶️' },
-    { value: 'very_spicy', label: language === 'km' ? 'ហឹរខ្លាំង' : 'Very Spicy 🌶️🌶️🌶️🌶️' },
+    { value: SpiceLevel.NONE, label: language === 'km' ? 'មិនហឹរ' : 'No Spice' },
+    { value: SpiceLevel.MILD, label: language === 'km' ? 'ហឹរបន្តិច' : 'Mild 🌶️' },
+    { value: SpiceLevel.MEDIUM, label: language === 'km' ? 'ហឹរមធ្យម' : 'Medium 🌶️🌶️' },
+    { value: SpiceLevel.SPICY, label: language === 'km' ? 'ហឹរ' : 'Spicy 🌶️🌶️🌶️' },
+    { value: SpiceLevel.VERY_SPICY, label: language === 'km' ? 'ហឹរខ្លាំង' : 'Very Spicy 🌶️🌶️🌶️🌶️' },
   ];
 
   const sizeOptions = [
-    { value: 'small', label: language === 'km' ? 'តូច' : 'Small', price: finalPrice * 0.8 },
-    { value: 'medium', label: language === 'km' ? 'មធ្យម' : 'Medium', price: finalPrice },
-    { value: 'large', label: language === 'km' ? 'ធំ' : 'Large', price: finalPrice * 1.3 },
+    { value: ItemSize.SMALL, label: language === 'km' ? 'តូច' : 'Small', price: finalPrice * 0.8 },
+    { value: ItemSize.MEDIUM, label: language === 'km' ? 'មធ្យម' : 'Medium', price: finalPrice },
+    { value: ItemSize.LARGE, label: language === 'km' ? 'ធំ' : 'Large', price: finalPrice * 1.3 },
   ];
 
   return (
@@ -128,7 +125,7 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
         {/* Image */}
         {item.imageUrl && (
           <div className="w-full h-48 bg-[--tg-theme-secondary-bg-color] rounded-lg overflow-hidden">
-            <img 
+            <Image 
               src={item.imageUrl} 
               alt={getItemName()}
               className="w-full h-full object-cover"
@@ -165,7 +162,6 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
                 }`}
                 onClick={() => {
                   setSelectedSize(size.value as ItemSize);
-                  impactHaptic('light');
                 }}
               >
                 <div className="flex items-center justify-between">
@@ -187,8 +183,7 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
           <Select
             value={selectedSpiceLevel}
             onChange={(value) => {
-              setSelectedSpiceLevel(value as SpiceLevel);
-              impactHaptic('light');
+              setSelectedSpiceLevel(value.target.value as SpiceLevel);
             }}
           >
             {spiceLevelOptions.map((option) => (

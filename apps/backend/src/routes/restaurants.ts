@@ -1,5 +1,4 @@
 import { Router, Response } from 'express';
-import { z } from 'zod';
 import { queries } from '@dine-now/database';
 import { schemas, HTTP_STATUS } from '@dine-now/shared';
 import { 
@@ -174,17 +173,17 @@ router.get(
 
 /**
  * @swagger
- * /api/restaurants/table/qr/{qrCode}:
+ * /api/restaurants/table/{tableId}:
  *   get:
- *     summary: Get table and restaurant info by QR code
+ *     summary: Get table and restaurant info by its ID
  *     tags: [Restaurants]
  *     parameters:
  *       - in: path
- *         name: qrCode
+ *         name: tableId
  *         required: true
  *         schema:
  *           type: string
- *         description: Table QR code
+ *         description: Table ID
  *     responses:
  *       200:
  *         description: Table and restaurant information
@@ -192,21 +191,21 @@ router.get(
  *         description: Table not found or inactive
  */
 router.get(
-  '/table/qr/:qrCode',
-  validateParams(z.object({ qrCode: z.string().min(1) })),
+  '/table/:tableId',
+  validateParams(schemas.Id.transform((id) => ({ tableId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { qrCode } = req.params;
+    const { tableId } = req.params;
 
-    if (!qrCode) {
+    if (!tableId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        error: 'invalid QR code',
+        error: 'invalid table ID',
       });
     }
 
-    logInfo('Fetching table by QR code', { qrCode });
+    logInfo('Fetching table by ID', { tableId });
 
-    const tableData = await queries.table.getTableByQRCode(qrCode);
+    const tableData = await queries.table.getTableById(tableId);
 
     if (!tableData) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({

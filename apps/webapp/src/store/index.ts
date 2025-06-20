@@ -117,7 +117,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   estimatedTime: 0,
   
   addItem: (item) => {
-    const subtotal = parseFloat(item.menuItem.price) * item.quantity;
+    const subtotal = item.menuItem.price * item.quantity;
     const newItem: CartItem = { ...item, subtotal };
     
     set((state) => {
@@ -143,7 +143,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       if (item) {
         const updatedItem = { ...item, ...updates };
         if (updates.quantity || updates.menuItem) {
-          updatedItem.subtotal = parseFloat(updatedItem.menuItem.price) * updatedItem.quantity;
+          updatedItem.subtotal = updatedItem.menuItem.price * updatedItem.quantity;
         }
         newItems[index] = updatedItem;
         

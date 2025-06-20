@@ -18,7 +18,9 @@ export interface Customer {
 export interface Restaurant {
   id: ID;
   name: string;
+  nameKh?: string;
   description?: string;
+  descriptionKh?: string;
   address: string;
   phoneNumber: string;
   isActive: boolean;

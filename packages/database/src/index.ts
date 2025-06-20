@@ -42,15 +42,3 @@ export {
 
 // Export types for external use
 export type { DatabaseConfig } from './config';
-
-// Export queries helper functions for convinient use
-// export {
-//   restaurantQueries,
-//   tableQueries,
-//   customerQueries,
-//   staffQueries,
-//   menuQueries,
-//   orderQueries,
-//   kitchenQueries,
-//   analyticsQueries,
-// } from './queries';
