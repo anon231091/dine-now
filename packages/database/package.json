@@ -1,0 +1,76 @@
+{
+  "name": "@dine-now/database",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Database layer with Drizzle ORM for restaurant ordering system",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist migrations node_modules",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "db:generate": "drizzle-kit generate:pg",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push:pg",
+    "db:studio": "drizzle-kit studio",
+    "db:drop": "drizzle-kit drop",
+    "db:check": "drizzle-kit check:pg",
+    "db:up": "drizzle-kit up:pg",
+    "seed": "tsx src/seed/index.ts seed",
+    "seed:clear": "tsx src/seed/index.ts clear",
+    "seed:reseed": "tsx src/seed/index.ts reseed",
+    "db:setup": "npm run db:push && npm run seed",
+    "db:reset": "npm run seed:clear && npm run db:push && npm run seed"
+  },
+  "files": [
+    "dist",
+    "migrations"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js",
+      "require": "./dist/schema/index.js"
+    },
+    "./config": {
+      "types": "./dist/config/index.d.ts",
+      "import": "./dist/config/index.js",
+      "require": "./dist/config/index.js"
+    },
+    "./seed": {
+      "types": "./dist/seed/index.d.ts",
+      "import": "./dist/seed/index.js",
+      "require": "./dist/seed/index.js"
+    }
+  },
+  "dependencies": {
+    "@dine-now/shared": "*",
+    "drizzle-orm": "^0.44.2",
+    "pg": "^8.16.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.9.0",
+    "@types/pg": "^8.15.4",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "drizzle-kit": "^0.31.1",
+    "eslint": "^8.54.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.2"
+  }
+}
