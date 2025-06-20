@@ -1,31 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useTelegram } from '../providers/TelegramProvider';
-import { useAuth, useRestaurantByQR } from '../lib/api';
-import { useAuthStore, useRestaurantStore, useUIStore } from '../store';
-import { Placeholder, Spinner } from '@telegram-apps/telegram-ui';
-import { RestaurantSelection } from '../components/RestaurantSelection';
-import { MenuView } from '../components/MenuView';
-import { AuthScreen } from '../components/AuthScreen';
+import { useAuth, useRestaurantByTableId } from '@/lib/api';
+import { useAuthStore, useRestaurantStore, useUIStore } from '@/store';
+import { Spinner } from '@telegram-apps/telegram-ui';
+import { initData, useSignal } from '@telegram-apps/sdk-react';
+import { RestaurantSelection } from '@/components/RestaurantSelection';
+import { MenuView } from '@/components/MenuView';
+import { AuthScreen } from '@/components/AuthScreen';
+import { Page } from '@/components/Page';
 
 export default function HomePage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user, isReady, startParam } = useTelegram();
+  const tableId = useSignal(initData.startParam);
+  const user = useSignal(initData.user);
   const { isAuthenticated } = useAuthStore();
   const { currentRestaurant } = useRestaurantStore();
   const { setCurrentPage } = useUIStore();
   
   const [initializing, setInitializing] = useState(true);
   
-  // Get QR code from multiple possible sources
-  const qrCode = startParam || 
-                 searchParams.get('startapp') || 
-                 searchParams.get('tgWebAppStartParam');
-  
-  const { data: restaurantData, isLoading: loadingRestaurant } = useRestaurantByQR(qrCode || '');
+  const { data: restaurantData, isLoading: loadingRestaurant } = useRestaurantByTableId(tableId || '');
   const auth = useAuth();
 
   useEffect(() => {
@@ -34,11 +28,9 @@ export default function HomePage() {
 
   useEffect(() => {
     const initializeApp = async () => {
-      if (!isReady) return;
-
       try {
-        // If QR code is provided, load restaurant data
-        if (qrCode && restaurantData?.data?.data) {
+        // check restaurant data
+        if (restaurantData?.data?.data) {
           const { restaurant, table } = restaurantData.data.data;
           useRestaurantStore.getState().setRestaurant(restaurant);
           useRestaurantStore.getState().setTable(table);
@@ -61,19 +53,21 @@ export default function HomePage() {
     };
 
     initializeApp();
-  }, [isReady, user, qrCode, restaurantData, isAuthenticated]);
+  }, [user, restaurantData, isAuthenticated]);
 
   // Show loading while initializing
-  if (!isReady || initializing || auth.login.isPending || loadingRestaurant) {
+  if (initializing || auth.login.isPending || loadingRestaurant) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Spinner size="l" />
-          <p className="mt-4 text-[--tg-theme-hint-color]">
-            {loadingRestaurant ? 'Loading restaurant...' : 'Initializing...'}
-          </p>
+      <Page back={false}>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Spinner size="l" />
+            <p className="mt-4 text-[--tg-theme-hint-color]">
+              {loadingRestaurant ? 'Loading restaurant...' : 'Initializing...'}
+            </p>
+          </div>
         </div>
-      </div>
+      </Page>
     );
   }
 

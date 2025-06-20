@@ -10,70 +10,74 @@ import {
   Placeholder 
 } from '@telegram-apps/telegram-ui';
 import { MapPin, Clock, Star } from 'lucide-react';
-import { useRestaurants } from '../lib/api';
-import { useRestaurantStore, useUIStore } from '../store';
-import { useTelegram } from '../providers/TelegramProvider';
+import { useRestaurants } from '@/lib/api';
+import { useRestaurantStore, useUIStore } from '@/store';
 import { Restaurant } from '@dine-now/shared';
+import { Page } from './Page';
 
 export function RestaurantSelection() {
   const { data: restaurantsResponse, isLoading, error } = useRestaurants();
   const { setRestaurant } = useRestaurantStore();
   const { language } = useUIStore();
-  const { impactHaptic } = useTelegram();
 
   const restaurants = restaurantsResponse?.data?.data || [];
 
   const handleSelectRestaurant = (restaurant: Restaurant) => {
-    impactHaptic('light');
     setRestaurant(restaurant);
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Spinner size="l" />
-          <p className="mt-4 text-[--tg-theme-hint-color]">
-            Loading restaurants...
-          </p>
+      <Page back={false}>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Spinner size="l" />
+            <p className="mt-4 text-[--tg-theme-hint-color]">
+              Loading restaurants...
+            </p>
+          </div>
         </div>
-      </div>
+      </Page>
     );
   }
 
   if (error || restaurants.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Placeholder
-          header="No Restaurants Available"
-          description="We couldn't find any restaurants at the moment. Please try again later."
-        />
-      </div>
+      <Page back={false}>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <Placeholder
+            header="No Restaurants Available"
+            description="We couldn't find any restaurants at the moment. Please try again later."
+          />
+        </div>
+      </Page>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[--tg-theme-bg-color]">
-      <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4 z-10">
-        <Title level="1" className="text-center text-[--tg-theme-text-color]">
-          Choose Restaurant
-        </Title>
-        <Caption level="1" className="text-center text-[--tg-theme-hint-color] mt-1">
-          {language === 'km' ? 'ជ្រើសរើសភោជនីយដ្ឋាន' : 'Select your dining destination'}
-        </Caption>
-      </div>
+    <Page back={false}>
+      <div className="min-h-screen bg-[--tg-theme-bg-color]">
+        <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4 z-10">
+          <Title level="1" className="text-center text-[--tg-theme-text-color]">
+            Choose Restaurant
+          </Title>
+          <Caption level="1" className="text-center text-[--tg-theme-hint-color] mt-1">
+            {language === 'km' ? 'ជ្រើសរើសភោជនីយដ្ឋាន' : 'Select your dining destination'}
+          </Caption>
+        </div>
 
-      <div className="p-4 space-y-3">
-        {restaurants.map((restaurant) => (
-          <RestaurantCard
-            key={restaurant.id}
-            restaurant={restaurant}
-            onSelect={handleSelectRestaurant}
-            language={language}
-          />
-        ))}
+        <div className="p-4 space-y-3">
+          {restaurants.map((restaurant: Restaurant) => (
+            <RestaurantCard
+              key={restaurant.id}
+              restaurant={restaurant}
+              onSelect={handleSelectRestaurant}
+              language={language}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </Page>
   );
 }
 

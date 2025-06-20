@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Card, 
@@ -10,35 +10,23 @@ import {
   Button,
   Badge,
   Spinner,
-  Placeholder
+  Placeholder,
 } from '@telegram-apps/telegram-ui';
 import { Clock, MapPin, Receipt, ArrowRight } from 'lucide-react';
 import { useOrderHistory } from '../../lib/api';
 import { useUIStore } from '../../store';
-import { useTelegram } from '../../providers/TelegramProvider';
 import { formatPrice, getOrderStatusText } from '@dine-now/shared';
+import { Page } from '@/components/Page';
 
 export default function OrderHistoryPage() {
   const router = useRouter();
   const { language } = useUIStore();
-  const { showBackButton, hideBackButton, impactHaptic } = useTelegram();
   
   const [page, setPage] = useState(1);
   const { data: ordersResponse, isLoading, error } = useOrderHistory({ page, limit: 10 });
   const orders = ordersResponse?.data?.data || [];
 
-  // Setup back button
-  useEffect(() => {
-    showBackButton(() => {
-      impactHaptic('light');
-      router.back();
-    });
-
-    return () => hideBackButton();
-  }, [showBackButton, hideBackButton, router, impactHaptic]);
-
   const handleOrderClick = (orderId: string) => {
-    impactHaptic('light');
     router.push(`/order/${orderId}`);
   };
 
@@ -76,86 +64,91 @@ export default function OrderHistoryPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Spinner size="l" />
-          <p className="mt-4 text-[--tg-theme-hint-color]">
-            {language === 'km' ? 'កំពុងផ្ទុកប្រវត្តិការបញ្ជាទិញ...' : 'Loading order history...'}
-          </p>
+      <Page>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <Spinner size="l" />
+            <p className="mt-4 text-[--tg-theme-hint-color]">
+              {language === 'km' ? 'កំពុងផ្ទុកប្រវត្តិការបញ្ជាទិញ...' : 'Loading order history...'}
+            </p>
+          </div>
         </div>
-      </div>
+      </Page>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Placeholder
-          header={language === 'km' ? 'មានបញ្ហាកើតឡើង' : 'Something went wrong'}
-          description={language === 'km' ? 'មិនអាចផ្ទុកប្រវត្តិការបញ្ជាទិញបានទេ' : 'Unable to load order history'}
-        >
-          <Button mode="filled" onClick={() => window.location.reload()}>
-            {language === 'km' ? 'ព្យាយាមម្តងទៀត' : 'Try Again'}
-          </Button>
-        </Placeholder>
-      </div>
+      <Page>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <Placeholder
+            header={language === 'km' ? 'មានបញ្ហាកើតឡើង' : 'Something went wrong'}
+            description={language === 'km' ? 'មិនអាចផ្ទុកប្រវត្តិការបញ្ជាទិញបានទេ' : 'Unable to load order history'}
+          >
+            <Button mode="filled" onClick={() => window.location.reload()}>
+              {language === 'km' ? 'ព្យាយាមម្តងទៀត' : 'Try Again'}
+            </Button>
+          </Placeholder>
+        </div>
+      </Page>
     );
   }
 
   if (orders.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Placeholder
-          icon={<Receipt className="w-12 h-12 text-[--tg-theme-hint-color]" />}
-          header={language === 'km' ? 'មិនមានការបញ្ជាទិញ' : 'No Orders Yet'}
-          description={language === 'km' ? 'អ្នកមិនទាន់មានការបញ្ជាទិញណាមួយទេ' : "You haven't placed any orders yet"}
-        >
-          <Button mode="filled" onClick={() => router.push('/')}>
-            {language === 'km' ? 'ចាប់ផ្តើមបញ្ជាទិញ' : 'Start Ordering'}
-          </Button>
-        </Placeholder>
-      </div>
+      <Page>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <Placeholder
+            header={language === 'km' ? 'មិនមានការបញ្ជាទិញ' : 'No Orders Yet'}
+            description={language === 'km' ? 'អ្នកមិនទាន់មានការបញ្ជាទិញណាមួយទេ' : "You haven't placed any orders yet"}
+          >
+            <Receipt className="w-12 h-12 text-[--tg-theme-hint-color]" />
+          </Placeholder>
+        </div>
+      </Page>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[--tg-theme-bg-color]">
-      {/* Header */}
-      <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4 z-10">
-        <Title level="1" className="text-center text-[--tg-theme-text-color]">
-          {language === 'km' ? 'ប្រវត្តិការបញ្ជាទិញ' : 'Order History'}
-        </Title>
-      </div>
-
-      {/* Orders List */}
-      <div className="p-4 space-y-3">
-        {orders.map((order: any) => (
-          <OrderCard
-            key={order.order.id}
-            order={order}
-            language={language}
-            onOrderClick={handleOrderClick}
-            formatDate={formatDate}
-            formatTime={formatTime}
-            getStatusColor={getStatusColor}
-          />
-        ))}
-      </div>
-
-      {/* Load More Button */}
-      {orders.length >= 10 && (
-        <div className="p-4">
-          <Button
-            mode="outline"
-            size="l"
-            stretched
-            onClick={() => setPage(page + 1)}
-          >
-            {language === 'km' ? 'ផ្ទុកបន្ថែម' : 'Load More'}
-          </Button>
+    <Page>
+      <div className="min-h-screen bg-[--tg-theme-bg-color]">
+        {/* Header */}
+        <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4 z-10">
+          <Title level="1" className="text-center text-[--tg-theme-text-color]">
+            {language === 'km' ? 'ប្រវត្តិការបញ្ជាទិញ' : 'Order History'}
+          </Title>
         </div>
-      )}
-    </div>
+
+        {/* Orders List */}
+        <div className="p-4 space-y-3">
+          {orders.map((order: any) => (
+            <OrderCard
+              key={order.order.id}
+              order={order}
+              language={language}
+              onOrderClick={handleOrderClick}
+              formatDate={formatDate}
+              formatTime={formatTime}
+              getStatusColor={getStatusColor}
+            />
+          ))}
+        </div>
+
+        {/* Load More Button */}
+        {orders.length >= 10 && (
+          <div className="p-4">
+            <Button
+              mode="outline"
+              size="l"
+              stretched
+              onClick={() => setPage(page + 1)}
+            >
+              {language === 'km' ? 'ផ្ទុកបន្ថែម' : 'Load More'}
+            </Button>
+          </div>
+        )}
+      </div>
+    </Page>
   );
 }
 
@@ -189,7 +182,7 @@ function OrderCard({
               <Title level="3" className="text-[--tg-theme-text-color]">
                 #{order.order.orderNumber}
               </Title>
-              <Badge mode={getStatusColor(order.order.status)}>
+              <Badge type='dot' mode={getStatusColor(order.order.status) as any}>
                 {getOrderStatusText(order.order.status)}
               </Badge>
             </div>

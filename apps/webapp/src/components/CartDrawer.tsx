@@ -10,9 +10,8 @@ import {
   Input
 } from '@telegram-apps/telegram-ui';
 import { Minus, Plus, Trash2, ShoppingBag, Clock } from 'lucide-react';
-import { useCartStore, useRestaurantStore, useUIStore, useAuthStore } from '../store';
-import { useCreateOrder } from '../lib/api';
-import { useTelegram } from '../providers/TelegramProvider';
+import { useCartStore, useRestaurantStore, useUIStore, useAuthStore } from '@/store';
+import { useCreateOrder } from '@/lib/api';
 import { formatPrice, getSpiceLevelText, getSizeText } from '@dine-now/shared';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -27,7 +26,6 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { currentTable } = useRestaurantStore();
   const { language } = useUIStore();
   const { user } = useAuthStore();
-  const { impactHaptic, notificationHaptic, showMainButton, hideMainButton } = useTelegram();
   const router = useRouter();
   
   const [orderNotes, setOrderNotes] = useState('');
@@ -40,13 +38,11 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     
     if (newQuantity !== item.quantity) {
       updateItem(index, { quantity: newQuantity });
-      impactHaptic('light');
     }
   };
 
   const handleRemoveItem = (index: number) => {
     removeItem(index);
-    impactHaptic('medium');
   };
 
   const handlePlaceOrder = async () => {
@@ -72,15 +68,11 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       // Clear cart and close drawer
       clearCart();
       onClose();
-      hideMainButton();
       
       // Navigate to order tracking
       router.push(`/order/${response.data.data.order.id}`);
-      
-      notificationHaptic('success');
     } catch (error) {
       console.error('Order placement failed:', error);
-      notificationHaptic('error');
     }
   };
 
@@ -96,13 +88,10 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       <Modal open={isOpen} onOpenChange={onClose}>
         <div className="p-6">
           <Placeholder
-            icon={<ShoppingBag className="w-12 h-12 text-[--tg-theme-hint-color]" />}
             header={language === 'km' ? 'ការ៉ុតទទេ' : 'Your cart is empty'}
             description={language === 'km' ? 'បន្ថែមម្ហូបមួយចំនួនដើម្បីចាប់ផ្តើម' : 'Add some delicious items to get started'}
           >
-            <Button mode="filled" onClick={onClose}>
-              {language === 'km' ? 'ត្រលប់ទៅមុខ' : 'Continue Shopping'}
-            </Button>
+            <ShoppingBag className="w-12 h-12 text-[--tg-theme-hint-color]" />
           </Placeholder>
         </div>
       </Modal>
@@ -154,7 +143,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                       
                       {item.notes && (
                         <Caption level="1" className="text-[--tg-theme-hint-color] italic">
-                          "{item.notes}"
+                          {item.notes}
                         </Caption>
                       )}
                     </div>

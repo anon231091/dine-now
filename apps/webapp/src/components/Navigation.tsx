@@ -3,18 +3,15 @@
 import { 
   FixedLayout,
   Tabbar,
-  TabbarItem
 } from '@telegram-apps/telegram-ui';
 import { Home, History, User, Search } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useUIStore } from '../store';
-import { useTelegram } from '../providers/TelegramProvider';
+import { useUIStore } from '@/store';
 
 export function BottomNavigation() {
   const router = useRouter();
   const pathname = usePathname();
   const { language } = useUIStore();
-  const { impactHaptic } = useTelegram();
 
   const navItems = [
     {
@@ -44,7 +41,6 @@ export function BottomNavigation() {
   ];
 
   const handleNavigation = (path: string) => {
-    impactHaptic('light');
     router.push(path);
   };
 
@@ -64,14 +60,14 @@ export function BottomNavigation() {
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
-            <TabbarItem
+            <Tabbar.Item
               key={item.id}
               text={item.label}
               selected={isActive(item.path)}
               onClick={() => handleNavigation(item.path)}
             >
               <Icon className="w-5 h-5" />
-            </TabbarItem>
+            </Tabbar.Item>
           );
         })}
       </Tabbar>
@@ -82,10 +78,8 @@ export function BottomNavigation() {
 // Language Switcher Component
 export function LanguageSwitcher() {
   const { language, setLanguage } = useUIStore();
-  const { impactHaptic } = useTelegram();
 
   const handleLanguageSwitch = () => {
-    impactHaptic('light');
     setLanguage(language === 'en' ? 'km' : 'en');
   };
 

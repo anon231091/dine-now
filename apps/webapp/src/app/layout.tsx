@@ -1,35 +1,30 @@
-import { Inter } from 'next/font/google';
+import { type PropsWithChildren } from 'react';
 import { Metadata } from 'next';
-import { AppRoot } from '@telegram-apps/telegram-ui';
-import { TelegramProvider } from '../providers/TelegramProvider';
-import { QueryProvider } from '../providers/QueryProvider';
+import { getLocale } from 'next-intl/server';
 import { Toaster } from 'react-hot-toast';
-import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+import { NextIntlClientProvider } from 'next-intl';
+import { QueryProvider } from '@/providers/QueryProvider';
+import { Root } from '@/components/Root';
+
+import '@telegram-apps/telegram-ui/dist/styles.css';
+import 'normalize.css/normalize.css';
+import './_assets/globals.css';
 
 export const metadata: Metadata = {
-  title: 'Restaurant Ordering - Telegram Mini App',
-  description: 'Order food from your favorite restaurants in Cambodia',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
-  themeColor: '#000000',
+  title: 'DineNow - Restaurant Ordering',
+  description: 'Order food from your favorite restaurants in Cambodia'
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: PropsWithChildren) {
+  const locale = await getLocale();
+
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <TelegramProvider>
+    <html lang={locale}>
+      <body>
+        <NextIntlClientProvider>
           <QueryProvider>
-            <AppRoot
-              appearance="auto"
-              platform="ios"
-              className="min-h-screen bg-[--tg-theme-bg-color]"
-            >
+            <Root>
               {children}
               <Toaster
                 position="top-center"
@@ -39,12 +34,26 @@ export default function RootLayout({
                     background: 'var(--tg-theme-bg-color)',
                     color: 'var(--tg-theme-text-color)',
                     border: '1px solid var(--tg-theme-hint-color)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                  },
+                  success: {
+                    iconTheme: {
+                      primary: 'var(--tg-theme-link-color)',
+                      secondary: 'var(--tg-theme-button-text-color)',
+                    },
+                  },
+                  error: {
+                    iconTheme: {
+                      primary: 'var(--tg-theme-destructive-text-color)',
+                      secondary: 'var(--tg-theme-button-text-color)',
+                    },
                   },
                 }}
               />
-            </AppRoot>
+            </Root>
           </QueryProvider>
-        </TelegramProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
