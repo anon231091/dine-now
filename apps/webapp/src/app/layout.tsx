@@ -13,14 +13,7 @@ import { Root } from '@/components/Root';
 
 export const metadata: Metadata = {
   title: 'DineNow - Restaurant Ordering',
-  description: 'Order food from your favorite restaurants in Cambodia',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
-  themeColor: '#000000',
-  manifest: '/manifest.json',
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
+  description: 'Order food from your favorite restaurants in Cambodia'
 };
 
 export default async function RootLayout({ children }: PropsWithChildren) {

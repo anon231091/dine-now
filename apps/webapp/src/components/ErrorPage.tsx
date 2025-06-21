@@ -4,7 +4,7 @@
 import { Card, Title, Subheadline, Button } from '@telegram-apps/telegram-ui';
 import { AlertTriangle } from 'lucide-react';
 
-export function ErrorPage({ error }: { error?: Error }) {
+export function ErrorPage({ error, reset }: { error?: Error, reset: () => void }) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[--tg-theme-bg-color]">
       <Card className="max-w-sm w-full p-6 text-center">
@@ -27,7 +27,7 @@ export function ErrorPage({ error }: { error?: Error }) {
             mode="filled"
             size="l"
             stretched
-            onClick={() => window.location.reload()}
+            onClick={reset}
           >
             Reload Page
           </Button>

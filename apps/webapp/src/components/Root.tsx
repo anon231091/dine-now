@@ -11,12 +11,11 @@ import {
 
 import { setLocale } from '@/core/i18n/locale';
 import { useDidMount } from '@/hooks/useDidMount';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ErrorPage } from '@/components/ErrorPage';
 import { BottomNavigation } from '@/components/Navigation';
 
-function RootInner({ children }: PropsWithChildren) {
+export function Root({ children }: PropsWithChildren) {
   const lp = useLaunchParams();
+  const didMount = useDidMount();
 
   const isDark = useSignal(miniApp.isDark);
   const initDataUser = useSignal(initData.user);
@@ -26,7 +25,7 @@ function RootInner({ children }: PropsWithChildren) {
     initDataUser && setLocale(initDataUser.language_code);
   }, [initDataUser]);
 
-  return (
+  return didMount ? (
     <AppRoot
       appearance={isDark ? 'dark' : 'light'}
       platform={['macos', 'ios'].includes(lp.tgWebAppPlatform) ? 'ios' : 'base'}
@@ -36,16 +35,6 @@ function RootInner({ children }: PropsWithChildren) {
       </main>
       <BottomNavigation />
     </AppRoot>
-  );
-}
-
-export function Root(props: PropsWithChildren) {
-  const didMount = useDidMount();
-
-  return didMount ? (
-    <ErrorBoundary fallback={ErrorPage}>
-      <RootInner {...props} />
-    </ErrorBoundary>
   ) : (
     <div className="root__loading">
       <div className="root__loading-spinner" />
