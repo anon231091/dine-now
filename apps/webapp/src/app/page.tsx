@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAuth, useRestaurantByTableId } from '../lib/api';
-import { useAuthStore, useRestaurantStore, useUIStore } from '../store';
+import { useAuth, useRestaurantByTableId } from '@/lib/api';
+import { useAuthStore, useRestaurantStore, useUIStore } from '@/store';
 import { Spinner } from '@telegram-apps/telegram-ui';
 import { initData, useSignal } from '@telegram-apps/sdk-react';
-import { RestaurantSelection } from '../components/RestaurantSelection';
-import { MenuView } from '../components/MenuView';
-import { AuthScreen } from '../components/AuthScreen';
+import { RestaurantSelection } from '@/components/RestaurantSelection';
+import { MenuView } from '@/components/MenuView';
+import { AuthScreen } from '@/components/AuthScreen';
 import { Page } from '@/components/Page';
 
 export default function HomePage() {

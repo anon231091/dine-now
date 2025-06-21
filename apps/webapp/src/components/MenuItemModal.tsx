@@ -13,9 +13,8 @@ import {
 } from '@telegram-apps/telegram-ui';
 import { Minus, Plus, Clock, X } from 'lucide-react';
 import { MenuItem, SpiceLevel, ItemSize, formatPrice } from '@dine-now/shared';
-import { useCartStore, useUIStore } from '../store';
+import { useCartStore, useUIStore } from '@/store';
 import toast from 'react-hot-toast';
-import Image from 'next/image';
 
 interface MenuItemModalProps {
   item: MenuItem;
@@ -125,7 +124,8 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
         {/* Image */}
         {item.imageUrl && (
           <div className="w-full h-48 bg-[--tg-theme-secondary-bg-color] rounded-lg overflow-hidden">
-            <Image 
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
               src={item.imageUrl} 
               alt={getItemName()}
               className="w-full h-full object-cover"

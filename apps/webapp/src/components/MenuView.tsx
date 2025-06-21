@@ -15,14 +15,13 @@ import {
 } from '@telegram-apps/telegram-ui';
 import { mainButton } from '@telegram-apps/sdk-react';
 import { ShoppingCart, Plus, Clock, Search } from 'lucide-react';
-import { useMenu, useKitchenStatus } from '../lib/api';
-import { useRestaurantStore, useCartStore, useUIStore } from '../store';
+import { useMenu, useKitchenStatus } from '@/lib/api';
+import { useRestaurantStore, useCartStore, useUIStore } from '@/store';
 import { MenuItem, MenuCategory } from '@dine-now/shared';
 import { MenuItemModal } from './MenuItemModal';
 import { CartDrawer } from './CartDrawer';
 import { formatPrice } from '@dine-now/shared';
 import { Page } from './Page';
-import Image from 'next/image';
 
 export function MenuView() {
   const { currentRestaurant } = useRestaurantStore();
@@ -277,7 +276,8 @@ function MenuItemCard({
           
           {item.imageUrl && (
             <div className="ml-4 w-16 h-16 bg-[--tg-theme-secondary-bg-color] rounded-lg overflow-hidden">
-              <Image 
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
                 src={item.imageUrl} 
                 alt={getItemName(item)}
                 className="w-full h-full object-cover"

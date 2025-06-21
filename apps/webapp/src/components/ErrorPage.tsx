@@ -1,4 +1,3 @@
-// src/components/ErrorPage.tsx
 'use client';
 
 import { Card, Title, Subheadline, Button } from '@telegram-apps/telegram-ui';

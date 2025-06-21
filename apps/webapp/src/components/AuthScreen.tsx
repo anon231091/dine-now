@@ -2,7 +2,7 @@
 
 import { Button, Placeholder, Card } from '@telegram-apps/telegram-ui';
 import { initData, useSignal } from '@telegram-apps/sdk-react';
-import { useAuth } from '../lib/api';
+import { useAuth } from '@/lib/api';
 import { User, Utensils } from 'lucide-react';
 import { Page } from './Page';
 

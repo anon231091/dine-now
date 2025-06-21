@@ -25,8 +25,8 @@ import {
   HelpCircle,
   Info
 } from 'lucide-react';
-import { useAuthStore, useUIStore, useOrdersStore } from '../../store';
-import { LanguageSwitcher } from '../../components/Navigation';
+import { useAuthStore, useUIStore, useOrdersStore } from '@/store';
+import { LanguageSwitcher } from '@/components/Navigation';
 import toast from 'react-hot-toast';
 import { Page } from '@/components/Page';
 

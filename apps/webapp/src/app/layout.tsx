@@ -8,7 +8,7 @@ import { QueryProvider } from '@/providers/QueryProvider';
 
 import '@telegram-apps/telegram-ui/dist/styles.css';
 import 'normalize.css/normalize.css';
-import './_assets/globals.css';
+import './globals.css';
 import { Root } from '@/components/Root';
 
 export const metadata: Metadata = {

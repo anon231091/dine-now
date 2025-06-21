@@ -11,7 +11,6 @@ import {
   Badge,
   Spinner,
   Placeholder,
-  BadgeProps
 } from '@telegram-apps/telegram-ui';
 import { Clock, MapPin, Receipt, ArrowRight } from 'lucide-react';
 import { useOrderHistory } from '../../lib/api';

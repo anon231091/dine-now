@@ -6,7 +6,7 @@ import {
 } from '@telegram-apps/telegram-ui';
 import { Home, History, User, Search } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useUIStore } from '../store';
+import { useUIStore } from '@/store';
 
 export function BottomNavigation() {
   const router = useRouter();

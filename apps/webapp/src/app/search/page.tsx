@@ -15,12 +15,11 @@ import {
   Badge
 } from '@telegram-apps/telegram-ui';
 import { Search, Clock, Filter, X, Plus } from 'lucide-react';
-import { useMenu } from '../../lib/api';
-import { useRestaurantStore, useUIStore, useCartStore } from '../../store';
+import { useMenu } from '@/lib/api';
+import { useRestaurantStore, useUIStore, useCartStore } from '@/store';
 import { formatPrice, MenuCategory, MenuItem } from '@dine-now/shared';
-import { MenuItemModal } from '../../components/MenuItemModal';
+import { MenuItemModal } from '@/components/MenuItemModal';
 import { Page } from '@/components/Page';
-import Image from 'next/image';
 
 export default function SearchPage() {
   const router = useRouter();
@@ -348,7 +347,8 @@ function SearchResultCard({
           
           {item.imageUrl && (
             <div className="ml-4 w-16 h-16 bg-[--tg-theme-secondary-bg-color] rounded-lg overflow-hidden">
-              <Image 
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
                 src={item.imageUrl} 
                 alt={getItemName(item)}
                 className="w-full h-full object-cover"

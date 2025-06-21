@@ -10,8 +10,8 @@ import {
   Placeholder 
 } from '@telegram-apps/telegram-ui';
 import { MapPin, Clock, Star } from 'lucide-react';
-import { useRestaurants } from '../lib/api';
-import { useRestaurantStore, useUIStore } from '../store';
+import { useRestaurants } from '@/lib/api';
+import { useRestaurantStore, useUIStore } from '@/store';
 import { Restaurant } from '@dine-now/shared';
 import { Page } from './Page';
 

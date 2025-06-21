@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { useAuthStore, useWebSocketStore, useOrdersStore } from '../store';
+import { useAuthStore, useWebSocketStore, useOrdersStore } from '@/store';
 import { ApiResponse } from '@dine-now/shared';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';

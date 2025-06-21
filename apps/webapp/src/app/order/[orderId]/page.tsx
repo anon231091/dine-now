@@ -14,8 +14,8 @@ import {
   Snackbar
 } from '@telegram-apps/telegram-ui';
 import { Clock, MapPin, User, CheckCircle, AlertCircle, ArrowLeft, Bell } from 'lucide-react';
-import { useOrder, useWebSocket } from '../../../lib/api';
-import { useUIStore, useWebSocketStore } from '../../../store';
+import { useOrder, useWebSocket } from '@/lib/api';
+import { useUIStore, useWebSocketStore } from '@/store';
 import { formatPrice, getOrderStatusText, getCambodiaTime, OrderStatus } from '@dine-now/shared';
 import toast from 'react-hot-toast';
 import { Page } from '@/components/Page';

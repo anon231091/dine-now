@@ -10,8 +10,8 @@ import {
   Input
 } from '@telegram-apps/telegram-ui';
 import { Minus, Plus, Trash2, ShoppingBag, Clock } from 'lucide-react';
-import { useCartStore, useRestaurantStore, useUIStore, useAuthStore } from '../store';
-import { useCreateOrder } from '../lib/api';
+import { useCartStore, useRestaurantStore, useUIStore, useAuthStore } from '@/store';
+import { useCreateOrder } from '@/lib/api';
 import { formatPrice, getSpiceLevelText, getSizeText } from '@dine-now/shared';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
