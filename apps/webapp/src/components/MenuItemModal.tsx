@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations, useFormatter, useLocale } from 'next-intl';
 import { 
   Modal,
   Button,
@@ -12,18 +13,20 @@ import {
   Card
 } from '@telegram-apps/telegram-ui';
 import { Minus, Plus, Clock, X } from 'lucide-react';
-import { MenuItem, SpiceLevel, ItemSize, formatPrice } from '@dine-now/shared';
-import { useCartStore, useUIStore } from '@/store';
+import { MenuItem, SpiceLevel, ItemSize, Currency } from '@dine-now/shared';
+import { useCartStore } from '@/store';
 import toast from 'react-hot-toast';
 
 interface MenuItemModalProps {
   item: MenuItem;
   isOpen: boolean;
   onClose: () => void;
-  language: 'en' | 'km';
 }
 
-export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModalProps) {
+export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
+  const t = useTranslations('MenuItemModal');
+  const locale = useLocale();
+  const format = useFormatter();
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState<ItemSize>(ItemSize.MEDIUM);
   const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<SpiceLevel>(SpiceLevel.NONE);
@@ -32,14 +35,14 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
   const { addItem } = useCartStore();
 
   const getItemName = () => {
-    if (language === 'km' && item.nameKh) {
+    if (locale === 'km' && item.nameKh) {
       return item.nameKh;
     }
     return item.name;
   };
 
   const getItemDescription = () => {
-    if (language === 'km' && item.descriptionKh) {
+    if (locale === 'km' && item.descriptionKh) {
       return item.descriptionKh;
     }
     return item.description;
@@ -63,7 +66,7 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
 
   const handleAddToCart = () => {
     if (!item.isAvailable) {
-      toast.error(language === 'km' ? 'ម្ហូបនេះអស់ហើយ' : 'This item is out of stock');
+      toast.error(t('This item is out of stock'));
       return;
     }
 
@@ -76,25 +79,28 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
     });
 
     toast.success(
-      language === 'km' 
-        ? `បានបន្ថែម ${getItemName()} ចូលក្នុងការ៉ុតហើយ`
-        : `Added ${getItemName()} to cart`
+      `{${t('Added')} ${getItemName()} ${t('to cart')}`
     );
     onClose();
   };
 
+  const formatPrice = (amount: number, currency: Currency) => format.number(amount, {
+    style: 'currency',
+    currency,
+  });
+
   const spiceLevelOptions = [
-    { value: SpiceLevel.NONE, label: language === 'km' ? 'មិនហឹរ' : 'No Spice' },
-    { value: SpiceLevel.MILD, label: language === 'km' ? 'ហឹរបន្តិច' : 'Mild 🌶️' },
-    { value: SpiceLevel.MEDIUM, label: language === 'km' ? 'ហឹរមធ្យម' : 'Medium 🌶️🌶️' },
-    { value: SpiceLevel.SPICY, label: language === 'km' ? 'ហឹរ' : 'Spicy 🌶️🌶️🌶️' },
-    { value: SpiceLevel.VERY_SPICY, label: language === 'km' ? 'ហឹរខ្លាំង' : 'Very Spicy 🌶️🌶️🌶️🌶️' },
+    { value: SpiceLevel.NONE, label: t('No Spice') },
+    { value: SpiceLevel.MILD, label: t('Mild') },
+    { value: SpiceLevel.MEDIUM, label: t('Medium') },
+    { value: SpiceLevel.SPICY, label: t('Spicy') },
+    { value: SpiceLevel.VERY_SPICY, label: t('Very Spicy') },
   ];
 
   const sizeOptions = [
-    { value: ItemSize.SMALL, label: language === 'km' ? 'តូច' : 'Small', price: finalPrice * 0.8 },
-    { value: ItemSize.MEDIUM, label: language === 'km' ? 'មធ្យម' : 'Medium', price: finalPrice },
-    { value: ItemSize.LARGE, label: language === 'km' ? 'ធំ' : 'Large', price: finalPrice * 1.3 },
+    { value: ItemSize.SMALL, label: t('Small'), price: finalPrice * 0.8 },
+    { value: ItemSize.MEDIUM, label: t('Medium'), price: finalPrice },
+    { value: ItemSize.LARGE, label: t('Large'), price: finalPrice * 1.3 },
   ];
 
   return (
@@ -138,18 +144,18 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
           <div className="flex items-center space-x-1">
             <Clock className="w-4 h-4 text-[--tg-theme-hint-color]" />
             <Caption level="1" className="text-[--tg-theme-hint-color]">
-              {item.preparationTimeMinutes} {language === 'km' ? 'នាទី' : 'min'}
+              {item.preparationTimeMinutes} {t('min')}
             </Caption>
           </div>
           <Title level="3" className="text-[--tg-theme-link-color]">
-            {formatPrice(finalPrice)}
+            {format.number(finalPrice, 'currency')}
           </Title>
         </div>
 
         {/* Size Selection */}
         <Card className="p-4">
           <Title level="3" className="text-[--tg-theme-text-color] mb-3">
-            {language === 'km' ? 'ទំហំ' : 'Size'}
+            {t('Size')}
           </Title>
           <div className="space-y-2">
             {sizeOptions.map((size) => (
@@ -167,7 +173,7 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
                 <div className="flex items-center justify-between">
                   <span className="text-[--tg-theme-text-color]">{size.label}</span>
                   <span className="text-[--tg-theme-hint-color]">
-                    {formatPrice(size.price)}
+                    {format.number(size.price, 'currency')}
                   </span>
                 </div>
               </button>
@@ -178,7 +184,7 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
         {/* Spice Level */}
         <Card className="p-4">
           <Title level="3" className="text-[--tg-theme-text-color] mb-3">
-            {language === 'km' ? 'កម្រិតហឹរ' : 'Spice Level'}
+            {t('Spice Level')}
           </Title>
           <Select
             value={selectedSpiceLevel}
@@ -197,15 +203,13 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
         {/* Special Notes */}
         <Card className="p-4">
           <Title level="3" className="text-[--tg-theme-text-color] mb-3">
-            {language === 'km' ? 'កំណត់ចំណាំ' : 'Special Notes'}
+            {t('Notes')}
           </Title>
           <Input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder={
-              language === 'km' 
-                ? 'បន្ថែមកំណត់ចំណាំពិសេស...'
-                : 'Add special instructions...'
+              t('Add notes to kitchen...')
             }
             maxLength={200}
           />
@@ -247,9 +251,9 @@ export function MenuItemModal({ item, isOpen, onClose, language }: MenuItemModal
             onClick={handleAddToCart}
           >
             {!item.isAvailable ? (
-              language === 'km' ? 'អស់ហើយ' : 'Out of Stock'
+              t('Out of Stock')
             ) : (
-              `${language === 'km' ? 'បន្ថែមចូលការ៉ុត' : 'Add to Cart'} • ${formatPrice(totalPrice)}`
+              `${t('Add to Cart')} • ${format.number(totalPrice, 'currency')}`
             )}
           </Button>
         </div>

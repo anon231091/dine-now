@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useFormatter, useTranslations } from 'next-intl';
 import { 
   Card, 
   Title, 
@@ -14,13 +15,13 @@ import {
 } from '@telegram-apps/telegram-ui';
 import { Clock, MapPin, Receipt, ArrowRight } from 'lucide-react';
 import { useOrderHistory } from '../../lib/api';
-import { useUIStore } from '../../store';
-import { formatPrice, getOrderStatusText } from '@dine-now/shared';
+import { Currency, getOrderStatusText, Order, Restaurant } from '@dine-now/shared';
 import { Page } from '@/components/Page';
 
 export default function OrderHistoryPage() {
   const router = useRouter();
-  const { language } = useUIStore();
+  const format = useFormatter();
+  const t = useTranslations('OrderHistoryPage');
   
   const [page, setPage] = useState(1);
   const { data: ordersResponse, isLoading, error } = useOrderHistory({ page, limit: 10 });
@@ -30,25 +31,18 @@ export default function OrderHistoryPage() {
     router.push(`/order/${orderId}`);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'Asia/Phnom_Penh',
-    });
-  };
+  const formatDatetime = (dateTime: Date) => format.dateTime(dateTime, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+  })
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: 'Asia/Phnom_Penh',
-    });
-  };
+  const formatCurrency = (amount: number, currency: Currency) => format.number(amount, {
+    style: 'currency',
+    currency,
+  })
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -69,7 +63,7 @@ export default function OrderHistoryPage() {
           <div className="text-center">
             <Spinner size="l" />
             <p className="mt-4 text-[--tg-theme-hint-color]">
-              {language === 'km' ? 'កំពុងផ្ទុកប្រវត្តិការបញ្ជាទិញ...' : 'Loading order history...'}
+              {t('Loading order history')}...
             </p>
           </div>
         </div>
@@ -82,11 +76,11 @@ export default function OrderHistoryPage() {
       <Page>
         <div className="min-h-screen flex items-center justify-center p-4">
           <Placeholder
-            header={language === 'km' ? 'មានបញ្ហាកើតឡើង' : 'Something went wrong'}
-            description={language === 'km' ? 'មិនអាចផ្ទុកប្រវត្តិការបញ្ជាទិញបានទេ' : 'Unable to load order history'}
+            header={t('Something went wrong')}
+            description={t('Unable to load order history')}
           >
-            <Button mode="filled" onClick={() => window.location.reload()}>
-              {language === 'km' ? 'ព្យាយាមម្តងទៀត' : 'Try Again'}
+            <Button mode="filled" onClick={() => router.refresh()}>
+              {t('Try Again')}
             </Button>
           </Placeholder>
         </div>
@@ -99,8 +93,8 @@ export default function OrderHistoryPage() {
       <Page>
         <div className="min-h-screen flex items-center justify-center p-4">
           <Placeholder
-            header={language === 'km' ? 'មិនមានការបញ្ជាទិញ' : 'No Orders Yet'}
-            description={language === 'km' ? 'អ្នកមិនទាន់មានការបញ្ជាទិញណាមួយទេ' : "You haven't placed any orders yet"}
+            header={t('No Orders Yet')}
+            description={t("You haven't placed any orders yet")}
           >
             <Receipt className="w-12 h-12 text-[--tg-theme-hint-color]" />
           </Placeholder>
@@ -115,7 +109,7 @@ export default function OrderHistoryPage() {
         {/* Header */}
         <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4 z-10">
           <Title level="1" className="text-center text-[--tg-theme-text-color]">
-            {language === 'km' ? 'ប្រវត្តិការបញ្ជាទិញ' : 'Order History'}
+            {t('Order History')}
           </Title>
         </div>
 
@@ -125,10 +119,9 @@ export default function OrderHistoryPage() {
             <OrderCard
               key={order.order.id}
               order={order}
-              language={language}
               onOrderClick={handleOrderClick}
-              formatDate={formatDate}
-              formatTime={formatTime}
+              formatDatetime={formatDatetime}
+              formatCurrency={formatCurrency}
               getStatusColor={getStatusColor}
             />
           ))}
@@ -143,7 +136,7 @@ export default function OrderHistoryPage() {
               stretched
               onClick={() => setPage(page + 1)}
             >
-              {language === 'km' ? 'ផ្ទុកបន្ថែម' : 'Load More'}
+              {t('Load More')}
             </Button>
           </div>
         )}
@@ -154,36 +147,36 @@ export default function OrderHistoryPage() {
 
 // Order Card Component
 interface OrderCardProps {
-  order: any;
-  language: 'en' | 'km';
+  order: { order: Order, restaurant: Restaurant };
   onOrderClick: (orderId: string) => void;
-  formatDate: (date: string) => string;
-  formatTime: (date: string) => string;
+  formatDatetime: (datetime: Date) => string;
+  formatCurrency: (amount: number, currency: Currency) => string;
   getStatusColor: (status: string) => string;
 }
 
 function OrderCard({ 
-  order, 
-  language, 
+  order: { order, restaurant }, 
   onOrderClick, 
-  formatDate, 
-  formatTime, 
+  formatDatetime,
+  formatCurrency,
   getStatusColor 
 }: OrderCardProps) {
+  const t = useTranslations('OrderHistoryPage');
+
   return (
     <Card 
       className="cursor-pointer hover:bg-[--tg-theme-secondary-bg-color] transition-colors"
-      onClick={() => onOrderClick(order.order.id)}
+      onClick={() => onOrderClick(order.id)}
     >
       <div className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center space-x-2 mb-1">
               <Title level="3" className="text-[--tg-theme-text-color]">
-                #{order.order.orderNumber}
+                #{order.orderNumber}
               </Title>
-              <Badge type='dot' mode={getStatusColor(order.order.status) as any}>
-                {getOrderStatusText(order.order.status)}
+              <Badge type='dot' mode={getStatusColor(order.status) as any}>
+                {getOrderStatusText(order.status)}
               </Badge>
             </div>
             
@@ -191,7 +184,7 @@ function OrderCard({
               <div className="flex items-center space-x-1">
                 <Clock className="w-4 h-4 text-[--tg-theme-hint-color]" />
                 <Caption level="1" className="text-[--tg-theme-hint-color]">
-                  {formatDate(order.order.createdAt)} • {formatTime(order.order.createdAt)}
+                  {formatDatetime(order.createdAt)}
                 </Caption>
               </div>
             </div>
@@ -204,20 +197,20 @@ function OrderCard({
         <div className="flex items-center space-x-2 mb-3">
           <MapPin className="w-4 h-4 text-[--tg-theme-hint-color]" />
           <Subheadline level="2" className="text-[--tg-theme-text-color]">
-            {order.restaurant?.name}
+            {restaurant.name}
           </Subheadline>
           <Caption level="1" className="text-[--tg-theme-hint-color]">
-            • {language === 'km' ? 'តុ' : 'Table'} {order.table?.number}
+            • {t('Table Number')} {order.table?.number}
           </Caption>
         </div>
 
         {/* Order Summary */}
         <div className="flex items-center justify-between">
           <Caption level="1" className="text-[--tg-theme-hint-color]">
-            {order.order.orderItems?.length || 0} {language === 'km' ? 'ម្ហូប' : 'items'}
+            {order.orderItems.length} {t('items')}
           </Caption>
           <Title level="3" className="text-[--tg-theme-link-color]">
-            {formatPrice(parseFloat(order.order.totalAmount))}
+            {formatCurrency(order.totalAmount, order.currency)}
           </Title>
         </div>
       </div>

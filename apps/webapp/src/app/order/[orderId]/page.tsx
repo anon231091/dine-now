@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { useTranslations, useFormatter, useLocale } from 'next-intl';
 import { 
   Card, 
   Title, 
@@ -11,28 +12,29 @@ import {
   Badge,
   Spinner,
   Placeholder,
-  Snackbar
 } from '@telegram-apps/telegram-ui';
-import { Clock, MapPin, User, CheckCircle, AlertCircle, ArrowLeft, Bell } from 'lucide-react';
-import { useOrder, useWebSocket } from '@/lib/api';
-import { useUIStore, useWebSocketStore } from '@/store';
-import { formatPrice, getOrderStatusText, getCambodiaTime, OrderStatus } from '@dine-now/shared';
 import toast from 'react-hot-toast';
+import { Clock, MapPin, CheckCircle, AlertCircle, Bell } from 'lucide-react';
+
+import { useOrder, useWebSocket } from '@/lib/api';
+import { useWebSocketStore } from '@/store';
 import { Page } from '@/components/Page';
+import { Currency, getOrderStatusText, Order, OrderItem, type OrderStatus } from '@dine-now/shared';
 
 export default function OrderTrackingPage() {
-  const params = useParams();
+  const { orderId } = useParams<{orderId: string}>();
+  const locale = useLocale();
   const router = useRouter();
-  const orderId = params.orderId as string;
+  const t = useTranslations('OrderTrackingPage');
+  const format = useFormatter();
   
-  const { language } = useUIStore();
   const { messages, isConnected } = useWebSocketStore();
   const [currentOrderStatus, setCurrentOrderStatus] = useState<OrderStatus | null>(null);
   const [showStatusUpdate, setShowStatusUpdate] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
   
   const { data: orderResponse, isLoading, error, refetch } = useOrder(orderId);
-  const order = orderResponse?.data?.data;
+  const order = useMemo<Order>(() => orderResponse?.data?.data, [orderResponse]);
   
   // Initialize WebSocket for real-time updates
   useWebSocket();
@@ -63,9 +65,7 @@ export default function OrderTrackingPage() {
         // Show status update notification
         const statusText = getOrderStatusText(newStatus);
         toast.success(
-          language === 'km' 
-            ? `ស្ថានភាពបានផ្លាស់ប្តូរ: ${statusText}`
-            : `Status updated: ${statusText}`,
+          `${t('Status updated')}: ${statusText}`,
           {
             icon: '🎉',
             duration: 5000,
@@ -79,7 +79,7 @@ export default function OrderTrackingPage() {
         setTimeout(() => setShowStatusUpdate(false), 5000);
       }
     }
-  }, [messages, order, orderId, currentOrderStatus, language, refetch]);
+  }, [messages, order, orderId, currentOrderStatus, refetch, t]);
 
   // Auto-refetch order periodically if not completed
   useEffect(() => {
@@ -116,24 +116,19 @@ export default function OrderTrackingPage() {
     }
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-      timeZone: 'Asia/Phnom_Penh',
-    });
-  };
-
-  const getItemName = (item: any) => {
-    if (language === 'km' && item.menuItem?.nameKh) {
+  const getItemName = (item: OrderItem) => {
+    if (locale === 'km' && item.menuItem?.nameKh) {
       return item.menuItem.nameKh;
     }
-    return item.menuItem?.name || 'Unknown Item';
+    return item.menuItem?.name || t('Unknown Item');
   };
 
-  const displayStatus = currentOrderStatus || order?.status || 'pending';
+  const formatPrice = (amount: number, currency: Currency) => format.number(amount, {
+    style: 'currency',
+    currency
+  });
+
+  const displayStatus = currentOrderStatus || order?.status || t('pending');
 
   if (isLoading) {
     return (
@@ -142,7 +137,7 @@ export default function OrderTrackingPage() {
           <div className="text-center">
             <Spinner size="l" />
             <p className="mt-4 text-[--tg-theme-hint-color]">
-              {language === 'km' ? 'កំពុងផ្ទុកការបញ្ជាទិញ...' : 'Loading order...'}
+              {t('Loading order')}...
             </p>
           </div>
         </div>
@@ -155,11 +150,11 @@ export default function OrderTrackingPage() {
       <Page>
         <div className="min-h-screen flex items-center justify-center p-4">
           <Placeholder
-            header={language === 'km' ? 'រកមិនឃើញការបញ្ជាទិញ' : 'Order Not Found'}
-            description={language === 'km' ? 'ការបញ្ជាទិញនេះមិនអាចរកឃើញទេ' : 'This order could not be found'}
+            header={t('Order Not Found')}
+            description={t('This order could not be found')}
           >
             <Button mode="filled" onClick={() => router.push('/')}>
-              {language === 'km' ? 'ត្រលប់ទៅដើម' : 'Go Home'}
+              {t('Go Home')}
             </Button>
           </Placeholder>
         </div>
@@ -176,7 +171,7 @@ export default function OrderTrackingPage() {
             <div className="flex items-center justify-center space-x-2">
               <Bell className="w-5 h-5 animate-bounce" />
               <span className="font-medium">
-                {language === 'km' ? 'ស្ថានភាពបានធ្វើបច្ចុប្បន្នភាព!' : 'Status Updated!'}
+                {t('Status Updated')}!
               </span>
             </div>
           </div>
@@ -188,10 +183,7 @@ export default function OrderTrackingPage() {
             <div className="flex items-center space-x-2">
               <AlertCircle className="w-4 h-4 text-yellow-600" />
               <Caption level="1" className="text-yellow-700">
-                {language === 'km' 
-                  ? 'ការតភ្ជាប់មិនស្ថិតស្ថេរ - ការធ្វើបច្ចុប្បន្នភាពអាចយឺត'
-                  : 'Connection unstable - Updates may be delayed'
-                }
+                {t('Connection unstable - Updates may be delayed')}
               </Caption>
             </div>
           </Card>
@@ -202,13 +194,13 @@ export default function OrderTrackingPage() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <Title level="2" className="text-[--tg-theme-text-color]">
-                {language === 'km' ? 'ការបញ្ជាទិញ' : 'Order'} #{order.orderNumber}
+                {t('Order')} #{order.orderNumber}
               </Title>
               <Caption level="1" className="text-[--tg-theme-hint-color]">
-                {formatTime(order.createdAt)}
+                {format.dateTime(order.createdAt, 'time')}
                 {lastUpdateTime && (
                   <span className="ml-2">
-                    • {language === 'km' ? 'ធ្វើបច្ចុប្បន្នភាព' : 'Updated'} {formatTime(lastUpdateTime.toISOString())}
+                    • {t('Updated')} {format.dateTime(lastUpdateTime, 'time')}
                   </span>
                 )}
               </Caption>
@@ -231,7 +223,7 @@ export default function OrderTrackingPage() {
                 {order.restaurant?.name}
               </Subheadline>
               <Caption level="1" className="text-[--tg-theme-hint-color]">
-                {language === 'km' ? 'តុលេខ' : 'Table'} {order.table?.number}
+                {t('Table')} {order.table?.number}
               </Caption>
             </div>
           </div>
@@ -240,46 +232,41 @@ export default function OrderTrackingPage() {
         {/* Order Status Timeline */}
         <Card className="p-4">
           <Title level="3" className="text-[--tg-theme-text-color] mb-4">
-            {language === 'km' ? 'ស្ថានភាពការបញ្ជាទិញ' : 'Order Status'}
+            {t('Order Status')}
           </Title>
           
           <div className="space-y-4">
             <OrderStatusStep
               status="pending"
               currentStatus={displayStatus}
-              title={language === 'km' ? 'បានទទួលការបញ្ជាទិញ' : 'Order Received'}
+              title={t('Order Received')}
               time={order.createdAt}
-              language={language}
             />
             <OrderStatusStep
               status="confirmed"
               currentStatus={displayStatus}
-              title={language === 'km' ? 'បានបញ្ជាក់ការបញ្ជាទិញ' : 'Order Confirmed'}
+              title={t('Order Confirmed')}
               time={order.confirmedAt}
-              language={language}
             />
             <OrderStatusStep
               status="preparing"
               currentStatus={displayStatus}
-              title={language === 'km' ? 'កំពុងរៀបចំ' : 'Preparing'}
-              time={displayStatus === 'preparing' ? getCambodiaTime().toISOString() : undefined}
-              language={language}
+              title={t('Preparing')}
+              time={displayStatus === 'preparing' ? new Date() : undefined}
               isActive={displayStatus === 'preparing'}
             />
             <OrderStatusStep
               status="ready"
               currentStatus={displayStatus}
-              title={language === 'km' ? 'រួចរាល់ហើយ' : 'Ready for Pickup'}
+              title={t('Ready for Pickup')}
               time={order.readyAt}
-              language={language}
               isActive={displayStatus === 'ready'}
             />
             <OrderStatusStep
               status="served"
               currentStatus={displayStatus}
-              title={language === 'km' ? 'បានបម្រើរួចរាល់' : 'Served'}
+              title={t('Served')}
               time={order.servedAt}
-              language={language}
             />
           </div>
 
@@ -289,10 +276,7 @@ export default function OrderTrackingPage() {
               <div className="flex items-center space-x-2">
                 <Clock className="w-4 h-4 text-blue-600" />
                 <Caption level="1" className="text-blue-700">
-                  {language === 'km' 
-                    ? `ពេលវេលាប៉ាន់ស្មាន: ${order.estimatedPreparationMinutes} នាទីទៀត`
-                    : `Estimated time: ${order.estimatedPreparationMinutes} more minutes`
-                  }
+                  {`${t('Estimated time')}: ${order.estimatedPreparationMinutes} ${t('more minutes')}`}
                 </Caption>
               </div>
             </div>
@@ -304,10 +288,7 @@ export default function OrderTrackingPage() {
               <div className="flex items-center space-x-2">
                 <Bell className="w-4 h-4 text-green-600 animate-bounce" />
                 <Caption level="1" className="text-green-700 font-medium">
-                  {language === 'km' 
-                    ? 'ការបញ្ជាទិញរបស់អ្នករួចរាល់ហើយ! សូមរង់ចាំការបម្រើ។'
-                    : 'Your order is ready! Please wait for service.'
-                  }
+                  {t('Your order is ready! Please wait for service.')}
                 </Caption>
               </div>
             </div>
@@ -317,11 +298,11 @@ export default function OrderTrackingPage() {
         {/* Order Items */}
         <Card className="p-4">
           <Title level="3" className="text-[--tg-theme-text-color] mb-4">
-            {language === 'km' ? 'បញ្ជីម្ហូប' : 'Order Items'}
+            {t('Order Items')}
           </Title>
           
           <div className="space-y-3">
-            {order.orderItems?.map((item: any, index: number) => (
+            {order.orderItems?.map((item: OrderItem, index: number) => (
               <div key={index} className="flex items-center justify-between py-2 border-b border-[--tg-theme-separator-color] last:border-b-0">
                 <div className="flex-1">
                   <Subheadline level="2" className="text-[--tg-theme-text-color]">
@@ -334,7 +315,7 @@ export default function OrderTrackingPage() {
                   )}
                 </div>
                 <Caption level="1" className="text-[--tg-theme-text-color] font-medium">
-                  {formatPrice(parseFloat(item.subtotal))}
+                  {formatPrice(item.subtotal, order.currency)}
                 </Caption>
               </div>
             ))}
@@ -343,7 +324,7 @@ export default function OrderTrackingPage() {
           {order.notes && (
             <div className="mt-4 p-3 bg-[--tg-theme-secondary-bg-color] rounded-lg">
               <Caption level="1" className="text-[--tg-theme-hint-color] mb-1">
-                {language === 'km' ? 'កំណត់ចំណាំ:' : 'Order Notes:'}
+                {t('Order Notes:')}
               </Caption>
               <Subheadline level="2" className="text-[--tg-theme-text-color]">
                 {order.notes}
@@ -355,10 +336,10 @@ export default function OrderTrackingPage() {
           <div className="mt-4 pt-4 border-t border-[--tg-theme-separator-color]">
             <div className="flex items-center justify-between">
               <Title level="3" className="text-[--tg-theme-text-color]">
-                {language === 'km' ? 'សរុប' : 'Total'}
+                {t('Total')}
               </Title>
               <Title level="2" className="text-[--tg-theme-link-color]">
-                {formatPrice(parseFloat(order.totalAmount))}
+                {formatPrice(order.totalAmount, order.currency)}
               </Title>
             </div>
           </div>
@@ -373,7 +354,7 @@ export default function OrderTrackingPage() {
               stretched
               onClick={() => router.push('/')}
             >
-              {language === 'km' ? 'បញ្ជាទិញបន្ថែម' : 'Order More'}
+              {t('Order More')}
             </Button>
           </div>
         )}
@@ -387,12 +368,12 @@ interface OrderStatusStepProps {
   status: string;
   currentStatus: string;
   title: string;
-  time?: string;
-  language: 'en' | 'km';
+  time?: Date;
   isActive?: boolean;
 }
 
-function OrderStatusStep({ status, currentStatus, title, time, language, isActive }: OrderStatusStepProps) {
+function OrderStatusStep({ status, currentStatus, title, time, isActive }: OrderStatusStepProps) {
+  const format = useFormatter();
   const statusIndex = ['pending', 'confirmed', 'preparing', 'ready', 'served'].indexOf(status);
   const currentIndex = ['pending', 'confirmed', 'preparing', 'ready', 'served'].indexOf(currentStatus);
   
@@ -412,14 +393,7 @@ function OrderStatusStep({ status, currentStatus, title, time, language, isActiv
           {title}
         </Subheadline>
         {time && isCompleted && (
-          <Caption level="1" className="text-[--tg-theme-hint-color]">
-            {new Date(time).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-              timeZone: 'Asia/Phnom_Penh',
-            })}
-          </Caption>
+          <Caption level="1" className="text-[--tg-theme-hint-color]">{format.dateTime(time, 'time')}</Caption>
         )}
       </div>
     </div>

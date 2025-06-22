@@ -18,6 +18,7 @@ import {
   corsOptions,
   healthCheck,
   requestTiming,
+  authMiddleware,
 } from './middleware';
 
 // Import routes
@@ -87,6 +88,7 @@ app.use(compression());
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(authMiddleware);
 
 // Logging middleware
 if (config.nodeEnv === 'development') {

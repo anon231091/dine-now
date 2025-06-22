@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { validate, parse } from '@telegram-apps/init-data-node';
 import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { ZodError } from 'zod';
@@ -118,44 +119,43 @@ export const createRateLimit = (windowMs?: number, max?: number) => {
   });
 };
 
-// JWT authentication middleware
-export const authenticateToken = async (
+
+/**
+ * Middleware which authorizes the external client.
+ * @param req - Request object.
+ * @param res - Response object.
+ * @param next - function to call the next middleware.
+ */
+export const authMiddleware = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) => {
-  try {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+    // We expect passing init data in the Authorization header in the following format:
+    // <auth-type> <auth-data>
+    // <auth-type> must be "tma", and <auth-data> is Telegram Mini Apps init data.
+    const [authType, authData = ''] = (req.header('authorization') || '').split(' ');
 
-    if (!token) {
+    if (!authData || authType != 'tma') {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         success: false,
         error: ERROR_MESSAGES.UNAUTHORIZED,
       });
     }
 
-    const decoded = jwt.verify(token, config.jwtSecret) as any;
-    
-    // Get user from database
-    const customer = await queries.customer.getCustomerById(decoded.userId);
-    
-    if (!customer) {
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: ERROR_MESSAGES.CUSTOMER_NOT_FOUND,
+    try {
+      // Validate init data.
+      validate(authData, config.telegramBotToken, {
+        // We consider init data sign valid for 1 hour from their creation moment.
+        expiresIn: 3600,
       });
+
+      // Parse init data. We will surely need it in the future.
+      let initData = parse(authData);
+      return next();
+    } catch (e) {
+      return next(e);
     }
-
-    req.user = {
-      id: customer.id,
-      telegramId: customer.telegramId,
-    };
-
-    return next();
-  } catch (error) {
-    return next(error);
-  }
 };
 
 // Staff authentication middleware

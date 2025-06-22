@@ -1,7 +1,6 @@
 'use client';
 
 import { 
-  List, 
   Card, 
   Caption, 
   Title, 
@@ -11,14 +10,16 @@ import {
 } from '@telegram-apps/telegram-ui';
 import { MapPin, Clock, Star } from 'lucide-react';
 import { useRestaurants } from '@/lib/api';
-import { useRestaurantStore, useUIStore } from '@/store';
+import { useRestaurantStore } from '@/store';
 import { Restaurant } from '@dine-now/shared';
 import { Page } from './Page';
+import { useLocale } from 'next-intl';
+import { useTranslations } from 'use-intl';
 
 export function RestaurantSelection() {
+  const t = useTranslations('RestaurantSelection');
   const { data: restaurantsResponse, isLoading, error } = useRestaurants();
   const { setRestaurant } = useRestaurantStore();
-  const { language } = useUIStore();
 
   const restaurants = restaurantsResponse?.data?.data || [];
 
@@ -33,7 +34,7 @@ export function RestaurantSelection() {
           <div className="text-center">
             <Spinner size="l" />
             <p className="mt-4 text-[--tg-theme-hint-color]">
-              Loading restaurants...
+              {t('Loading restaurants')}...
             </p>
           </div>
         </div>
@@ -46,8 +47,8 @@ export function RestaurantSelection() {
       <Page back={false}>
         <div className="min-h-screen flex items-center justify-center p-4">
           <Placeholder
-            header="No Restaurants Available"
-            description="We couldn't find any restaurants at the moment. Please try again later."
+            header={t('No Restaurants Available')}
+            description={t("We couldn't find any restaurants at the moment. Please try again later.")}
           />
         </div>
       </Page>
@@ -59,10 +60,10 @@ export function RestaurantSelection() {
       <div className="min-h-screen bg-[--tg-theme-bg-color]">
         <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4 z-10">
           <Title level="1" className="text-center text-[--tg-theme-text-color]">
-            Choose Restaurant
+          {t('Choose Restaurant')}
           </Title>
           <Caption level="1" className="text-center text-[--tg-theme-hint-color] mt-1">
-            {language === 'km' ? 'ជ្រើសរើសភោជនីយដ្ឋាន' : 'Select your dining destination'}
+            {t('Select your dining destination')}
           </Caption>
         </div>
 
@@ -72,7 +73,6 @@ export function RestaurantSelection() {
               key={restaurant.id}
               restaurant={restaurant}
               onSelect={handleSelectRestaurant}
-              language={language}
             />
           ))}
         </div>
@@ -84,19 +84,21 @@ export function RestaurantSelection() {
 interface RestaurantCardProps {
   restaurant: Restaurant;
   onSelect: (restaurant: Restaurant) => void;
-  language: 'en' | 'km';
 }
 
-function RestaurantCard({ restaurant, onSelect, language }: RestaurantCardProps) {
+function RestaurantCard({ restaurant, onSelect }: RestaurantCardProps) {
+  const locale = useLocale();
+  const t = useTranslations('RestaurantSelection');
+
   const getName = () => {
-    if (language === 'km' && restaurant.nameKh) {
+    if (locale === 'km' && restaurant.nameKh) {
       return restaurant.nameKh;
     }
     return restaurant.name;
   };
 
   const getDescription = () => {
-    if (language === 'km' && restaurant.descriptionKh) {
+    if (locale === 'km' && restaurant.descriptionKh) {
       return restaurant.descriptionKh;
     }
     return restaurant.description;
@@ -135,7 +137,7 @@ function RestaurantCard({ restaurant, onSelect, language }: RestaurantCardProps)
           
           <div className="flex items-center space-x-1 text-[--tg-theme-hint-color]">
             <Clock className="w-4 h-4" />
-            <span>15-30 min</span>
+            <span>{t('15-30 min')}</span>
           </div>
         </div>
 

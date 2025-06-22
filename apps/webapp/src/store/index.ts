@@ -3,60 +3,11 @@ import { persist } from 'zustand/middleware';
 import { 
   Restaurant, 
   Table, 
-  Customer, 
   MenuItem, 
   Order, 
-  OrderItem,
   SpiceLevel,
   ItemSize 
 } from '@dine-now/shared';
-
-// Auth Store
-interface AuthState {
-  user: Customer | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  login: (user: Customer, token: string) => void;
-  logout: () => void;
-  updateUser: (user: Partial<Customer>) => void;
-}
-
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      
-      login: (user, token) => set({ 
-        user, 
-        token, 
-        isAuthenticated: true 
-      }),
-      
-      logout: () => set({ 
-        user: null, 
-        token: null, 
-        isAuthenticated: false 
-      }),
-      
-      updateUser: (userData) => {
-        const currentUser = get().user;
-        if (currentUser) {
-          set({ user: { ...currentUser, ...userData } });
-        }
-      },
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({ 
-        user: state.user, 
-        token: state.token, 
-        isAuthenticated: state.isAuthenticated 
-      }),
-    }
-  )
-);
 
 // Restaurant Store
 interface RestaurantState {
@@ -252,11 +203,9 @@ interface UIState {
   isLoading: boolean;
   currentPage: string;
   showCart: boolean;
-  language: 'en' | 'km';
   setLoading: (loading: boolean) => void;
   setCurrentPage: (page: string) => void;
   toggleCart: () => void;
-  setLanguage: (language: 'en' | 'km') => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -265,16 +214,12 @@ export const useUIStore = create<UIState>()(
       isLoading: false,
       currentPage: '/',
       showCart: false,
-      language: 'en',
-      
       setLoading: (loading) => set({ isLoading: loading }),
       setCurrentPage: (page) => set({ currentPage: page }),
       toggleCart: () => set((state) => ({ showCart: !state.showCart })),
-      setLanguage: (language) => set({ language }),
     }),
     {
       name: 'ui-storage',
-      partialize: (state) => ({ language: state.language }),
     }
   )
 );

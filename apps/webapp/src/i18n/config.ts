@@ -8,3 +8,8 @@ export const localesMap = [
   { key: 'en', title: 'English' },
   { key: 'km', title: 'Khmer' },
 ];
+
+export const localeCurrency = {
+  'en': 'USD',
+  'km': 'KHR',
+};

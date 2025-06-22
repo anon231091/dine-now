@@ -13,7 +13,6 @@ import {
   validateBody, 
   validateParams,
   validateQuery,
-  authenticateToken,
   AuthenticatedRequest 
 } from '../middleware';
 import { logInfo, logError } from '../utils/logger';
@@ -109,7 +108,6 @@ const router = Router();
  */
 router.post(
   '/',
-  authenticateToken,
   validateBody(schemas.CreateOrder),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { tableId, orderItems, notes } = req.body;
@@ -246,7 +244,6 @@ router.post(
  */
 router.get(
   '/:orderId',
-  authenticateToken,
   validateParams(schemas.Id.transform((id) => ({ orderId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { orderId } = req.params;
@@ -310,7 +307,6 @@ router.get(
  */
 router.get(
   '/customer/history',
-  authenticateToken,
   validateQuery(schemas.Pagination),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const customerId = req.user!.id;

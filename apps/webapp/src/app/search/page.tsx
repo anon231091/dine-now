@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations, useFormatter } from 'next-intl';
 import { 
   Card, 
   Title, 
@@ -16,15 +17,16 @@ import {
 } from '@telegram-apps/telegram-ui';
 import { Search, Clock, Filter, X, Plus } from 'lucide-react';
 import { useMenu } from '@/lib/api';
-import { useRestaurantStore, useUIStore, useCartStore } from '@/store';
-import { formatPrice, MenuCategory, MenuItem } from '@dine-now/shared';
+import { useRestaurantStore } from '@/store';
+import { MenuCategory, MenuItem } from '@dine-now/shared';
 import { MenuItemModal } from '@/components/MenuItemModal';
 import { Page } from '@/components/Page';
 
 export default function SearchPage() {
+  const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations('SearchPage');
   const { currentRestaurant } = useRestaurantStore();
-  const { language } = useUIStore();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -60,8 +62,8 @@ export default function SearchPage() {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       items = items.filter(item => {
-        const name = (language === 'km' && item.nameKh ? item.nameKh : item.name).toLowerCase();
-        const description = (language === 'km' && item.descriptionKh ? item.descriptionKh : item.description || '').toLowerCase();
+        const name = (locale === 'km' && item.nameKh ? item.nameKh : item.name).toLowerCase();
+        const description = (locale === 'km' && item.descriptionKh ? item.descriptionKh : item.description || '').toLowerCase();
         return name.includes(query) || description.includes(query);
       });
     }
@@ -83,24 +85,24 @@ export default function SearchPage() {
     items = items.filter(item => item.isAvailable);
 
     return items;
-  }, [allItems, searchQuery, selectedCategory, priceRange, language]);
+  }, [allItems, searchQuery, selectedCategory, priceRange, locale]);
 
-  const getItemName = (item: any) => {
-    if (language === 'km' && item.nameKh) {
+  const getItemName = (item: MenuItem) => {
+    if (locale === 'km' && item.nameKh) {
       return item.nameKh;
     }
     return item.name;
   };
 
-  const getItemDescription = (item: any) => {
-    if (language === 'km' && item.descriptionKh) {
+  const getItemDescription = (item: MenuItem) => {
+    if (locale === 'km' && item.descriptionKh) {
       return item.descriptionKh;
     }
     return item.description;
   };
 
-  const getCategoryName = (category: any) => {
-    if (language === 'km' && category.nameKh) {
+  const getCategoryName = (category: MenuCategory) => {
+    if (locale === 'km' && category.nameKh) {
       return category.nameKh;
     }
     return category.name;
@@ -119,11 +121,11 @@ export default function SearchPage() {
       <Page>
         <div className="min-h-screen flex items-center justify-center p-4">
           <Placeholder
-            header={language === 'km' ? 'មិនមានភោជនីយដ្ឋាន' : 'No Restaurant Selected'}
-            description={language === 'km' ? 'សូមជ្រើសរើសភោជនីយដ្ឋានជាមុនសិន' : 'Please select a restaurant first'}
+            header={t('No Restaurant Selected')}
+            description={t('Please select a restaurant first')}
           >
             <Button mode="filled" onClick={() => router.push('/')}>
-              {language === 'km' ? 'ជ្រើសរើសភោជនីយដ្ឋាន' : 'Select Restaurant'}
+              {t('Select Restaurant')}
             </Button>
           </Placeholder>
         </div>
@@ -137,14 +139,14 @@ export default function SearchPage() {
         {/* Header */}
         <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4 z-10">
           <Title level="1" className="text-center text-[--tg-theme-text-color] mb-4">
-            {language === 'km' ? 'ស្វែងរកម្ហូប' : 'Search Menu'}
+            {t('Search Menu')}
           </Title>
           
           {/* Search Input */}
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[--tg-theme-hint-color]" />
             <Input
-              placeholder={language === 'km' ? 'ស្វែងរកម្ហូប...' : 'Search for dishes...'}
+              placeholder={t('Search for dishes...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -161,7 +163,7 @@ export default function SearchPage() {
               }}
             >
               <Filter className="w-4 h-4 mr-2" />
-              {language === 'km' ? 'តម្រង' : 'Filters'}
+              {t('Filters')}
               {hasActiveFilters && (
                 <Badge type='dot' mode="critical" className="ml-2 min-w-[6px] h-[6px]" />
               )}
@@ -170,7 +172,7 @@ export default function SearchPage() {
             {hasActiveFilters && (
               <Button mode="plain" size="s" onClick={clearFilters}>
                 <X className="w-4 h-4 mr-1" />
-                {language === 'km' ? 'លុបចោល' : 'Clear'}
+                {t('Clear')}
               </Button>
             )}
           </div>
@@ -181,7 +183,7 @@ export default function SearchPage() {
               {/* Categories */}
               <div>
                 <Caption level="1" className="text-[--tg-theme-hint-color] mb-2">
-                  {language === 'km' ? 'ប្រភេទម្ហូប' : 'Categories'}
+                  {t('Categories')}
                 </Caption>
                 <div className="flex flex-wrap gap-2">
                   {categories.map(category => (
@@ -201,14 +203,14 @@ export default function SearchPage() {
               {/* Price Range */}
               <div>
                 <Caption level="1" className="text-[--tg-theme-hint-color] mb-2">
-                  {language === 'km' ? 'ជួរតម្លៃ' : 'Price Range'}
+                  {t('Price Range')}
                 </Caption>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { label: language === 'km' ? 'ក្រោម $5' : 'Under $5', min: 0, max: 5 },
-                    { label: '$5 - $10', min: 5, max: 10 },
-                    { label: '$10 - $20', min: 10, max: 20 },
-                    { label: language === 'km' ? 'លើស $20' : 'Over $20', min: 20, max: 1000 },
+                    { label: t('Under $5'), min: 0, max: 5 },
+                    { label: t('$5 - $10'), min: 5, max: 10 },
+                    { label: t('$10 - $20'), min: 10, max: 20 },
+                    { label: t('Over $20'), min: 20, max: 1000 },
                   ].map(range => (
                     <Chip
                       key={`${range.min}-${range.max}`}
@@ -238,15 +240,11 @@ export default function SearchPage() {
             </div>
           ) : filteredItems.length === 0 ? (
             <Placeholder
-              header={language === 'km' ? 'រកមិនឃើញលទ្ធផល' : 'No Results Found'}
+              header={t('No Results Found')}
               description={
                 searchQuery.trim() || hasActiveFilters
-                  ? language === 'km' 
-                    ? 'ព្យាយាមផ្លាស់ប្តូរពាក្យស្វែងរក ឬតម្រង'
-                    : 'Try adjusting your search or filters'
-                  : language === 'km'
-                    ? 'ស្វែងរកម្ហូបដែលអ្នកចង់ទិញ'
-                    : 'Search for dishes you want to order'
+                  ? t('Try adjusting your search or filters')
+                  : t('Search for dishes you want to order')
               }
             >
               <Search className="w-12 h-12 text-[--tg-theme-hint-color]" />
@@ -254,7 +252,7 @@ export default function SearchPage() {
           ) : (
             <>
               <Caption level="1" className="text-[--tg-theme-hint-color] mb-4">
-                {filteredItems.length} {language === 'km' ? 'លទ្ធផល' : 'results found'}
+                {filteredItems.length} {t('results found')}
               </Caption>
               
               <div className="space-y-3">
@@ -265,7 +263,6 @@ export default function SearchPage() {
                     onSelect={() => setSelectedItem(item)}
                     getItemName={getItemName}
                     getItemDescription={getItemDescription}
-                    language={language}
                   />
                 ))}
               </div>
@@ -279,7 +276,6 @@ export default function SearchPage() {
             item={selectedItem}
             isOpen={!!selectedItem}
             onClose={() => setSelectedItem(null)}
-            language={language}
           />
         )}
       </div>
@@ -289,11 +285,10 @@ export default function SearchPage() {
 
 // Search Result Card Component
 interface SearchResultCardProps {
-  item: any;
+  item: MenuItem;
   onSelect: () => void;
   getItemName: (item: any) => string;
   getItemDescription: (item: any) => string | undefined;
-  language: 'en' | 'km';
 }
 
 function SearchResultCard({ 
@@ -301,14 +296,12 @@ function SearchResultCard({
   onSelect, 
   getItemName, 
   getItemDescription,
-  language 
 }: SearchResultCardProps) {
-  const handleSelect = () => {
-    onSelect();
-  };
+  const t = useTranslations('SearchPage');
+  const format = useFormatter();
 
   return (
-    <Card className="cursor-pointer" onClick={handleSelect}>
+    <Card className="cursor-pointer" onClick={onSelect}>
       <div className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
@@ -328,13 +321,13 @@ function SearchResultCard({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Title level="3" className="text-[--tg-theme-link-color]">
-                  {formatPrice(parseFloat(item.price))}
+                  {format.number(item.price, 'currency')}
                 </Title>
                 
                 <div className="flex items-center space-x-1 text-[--tg-theme-hint-color]">
                   <Clock className="w-4 h-4" />
                   <Caption level="1">
-                    {item.preparationTimeMinutes} {language === 'km' ? 'នាទី' : 'min'}
+                    {item.preparationTimeMinutes} {t('min')}
                   </Caption>
                 </div>
               </div>

@@ -1,9 +1,10 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { useAuthStore, useWebSocketStore, useOrdersStore } from '@/store';
-import { ApiResponse } from '@dine-now/shared';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { retrieveRawInitData } from '@telegram-apps/sdk-react';
 import toast from 'react-hot-toast';
+
+import { useWebSocketStore, useOrdersStore } from '@/store';
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -21,10 +22,8 @@ const createApiClient = (): AxiosInstance => {
   // Request interceptor to add auth token
   client.interceptors.request.use(
     (config) => {
-      const token = useAuthStore.getState().token;
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+      const initDataRaw = retrieveRawInitData()
+      config.headers.Authorization = `tma ${initDataRaw}`;
       return config;
     },
     (error) => Promise.reject(error)
@@ -32,12 +31,11 @@ const createApiClient = (): AxiosInstance => {
 
   // Response interceptor for error handling
   client.interceptors.response.use(
-    (response: AxiosResponse<ApiResponse>) => response,
+    (response: AxiosResponse<any>) => response,
     async (error) => {
       if (error.response?.status === 401) {
         // Token expired or invalid
-        useAuthStore.getState().logout();
-        window.location.href = '/auth';
+        window.location.href = '/';
       }
       return Promise.reject(error);
     }
@@ -50,20 +48,6 @@ export const apiClient = createApiClient();
 
 // API Functions
 export const api = {
-  // Authentication
-  auth: {
-    loginTelegram: (data: {
-      telegramId: string;
-      firstName: string;
-      lastName?: string;
-      username?: string;
-      hash?: string;
-    }) => apiClient.post('/auth/telegram', data),
-    
-    verify: () => apiClient.get('/auth/verify'),
-    refresh: () => apiClient.post('/auth/refresh'),
-  },
-
   // Restaurants
   restaurants: {
     getAll: () => apiClient.get('/restaurants'),
@@ -199,57 +183,21 @@ export const useOrderHistory = (params?: { page?: number; limit?: number }) => {
   });
 };
 
-// Authentication hooks
-export const useAuth = () => {
-  const queryClient = useQueryClient();
-  
-  const login = useMutation({
-    mutationFn: api.auth.loginTelegram,
-    onSuccess: (response) => {
-      const { user, token } = response.data.data;
-      useAuthStore.getState().login(user, token);
-      toast.success(`Welcome ${user.firstName}!`);
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Authentication failed');
-    },
-  });
-
-  const verify = useQuery({
-    queryKey: ['auth-verify'],
-    queryFn: api.auth.verify,
-    enabled: !!useAuthStore.getState().token,
-    retry: false
-  });
-
-  return {
-    login,
-    verify,
-    logout: () => {
-      useAuthStore.getState().logout();
-      queryClient.clear();
-      toast.success('Logged out successfully');
-    },
-  };
-};
-
 // WebSocket hook
 export const useWebSocket = () => {
-  const { token } = useAuthStore();
   const { setConnected, addMessage } = useWebSocketStore();
   
   useEffect(() => {
-    if (!token) return;
-    
     const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
     const ws = new WebSocket(WS_URL);
     
     ws.onopen = () => {
       setConnected(true);
+      const initDataRaw = retrieveRawInitData();
       // Authenticate WebSocket connection
       ws.send(JSON.stringify({
         type: 'authenticate',
-        token,
+        initDataRaw,
       }));
     };
     
@@ -281,5 +229,5 @@ export const useWebSocket = () => {
     return () => {
       ws.close();
     };
-  }, [token, setConnected, addMessage]);
+  }, [setConnected, addMessage]);
 };

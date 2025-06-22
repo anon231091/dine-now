@@ -94,6 +94,11 @@ export enum ItemSize {
   LARGE = 'large'
 }
 
+export enum Currency {
+  USD = 'USD',
+  KHR = 'KHR'
+}
+
 export interface OrderItem {
   id: ID;
   orderId: ID;
@@ -117,12 +122,14 @@ export interface Order {
   orderNumber: string;
   status: OrderStatus;
   totalAmount: number;
+  currency: Currency,
   estimatedPreparationMinutes: number;
   actualPreparationMinutes?: number;
   notes?: string;
   orderItems: OrderItem[];
   customer?: Customer; // Populated when needed
   table?: Table; // Populated when needed
+  restaurant?: Restaurant;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   confirmedAt?: Timestamp;

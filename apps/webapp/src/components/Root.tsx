@@ -1,15 +1,13 @@
 'use client';
 
-import { type PropsWithChildren, useEffect } from "react";
+import { type PropsWithChildren } from "react";
 import { AppRoot } from '@telegram-apps/telegram-ui';
 import {
-  initData,
   miniApp,
   useLaunchParams,
   useSignal,
 } from '@telegram-apps/sdk-react';
 
-import { setLocale } from '@/i18n/locale';
 import { useDidMount } from '@/hooks/useDidMount';
 import { BottomNavigation } from './Navigation';
 
@@ -21,12 +19,6 @@ export function Root({ children }: PropsWithChildren) {
   const lp = useLaunchParams();
 
   const isDark = useSignal(miniApp.isDark);
-  const initDataUser = useSignal(initData.user);
-
-  // Set the user locale.
-  useEffect(() => {
-    initDataUser && setLocale(initDataUser.language_code);
-  }, [initDataUser]);
 
   return didMount ? (
     <AppRoot

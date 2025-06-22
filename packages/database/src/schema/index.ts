@@ -44,6 +44,8 @@ export const staffRoleEnum = pgEnum('staff_role', [
   'service'
 ]);
 
+export const currencyEnum = pgEnum('currency', ['USD', 'KHR']);
+
 // Restaurants table
 export const restaurants = pgTable('restaurants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -138,6 +140,7 @@ export const menuItems = pgTable('menu_items', {
   description: text('description'),
   descriptionKh: text('description_kh'),
   price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  currency: currencyEnum('currency').notNull().default('KHR'),
   imageUrl: text('image_url'),
   preparationTimeMinutes: integer('preparation_time_minutes').notNull().default(15),
   isAvailable: boolean('is_available').notNull().default(true),
@@ -163,6 +166,7 @@ export const orders = pgTable('orders', {
   orderNumber: varchar('order_number', { length: 20 }).notNull().unique(),
   status: orderStatusEnum('status').notNull().default('pending'),
   totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
+  currency: currencyEnum('currency').notNull().default('KHR'),
   estimatedPreparationMinutes: integer('estimated_preparation_minutes').notNull(),
   actualPreparationMinutes: integer('actual_preparation_minutes'),
   notes: text('notes'),

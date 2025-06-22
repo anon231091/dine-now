@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslations, useFormatter, useLocale } from 'next-intl';
 import { 
   List, 
   Card, 
@@ -20,13 +21,15 @@ import { useRestaurantStore, useCartStore, useUIStore } from '@/store';
 import { MenuItem, MenuCategory } from '@dine-now/shared';
 import { MenuItemModal } from './MenuItemModal';
 import { CartDrawer } from './CartDrawer';
-import { formatPrice } from '@dine-now/shared';
 import { Page } from './Page';
 
 export function MenuView() {
+  const locale = useLocale();
+  const t = useTranslations('MenuView');
+  const format = useFormatter();
   const { currentRestaurant } = useRestaurantStore();
   const { items: cartItems, getCartSummary } = useCartStore();
-  const { language, showCart, toggleCart } = useUIStore();
+  const { showCart, toggleCart } = useUIStore();
   
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -44,14 +47,14 @@ export function MenuView() {
     if (mainButton.setParams.isAvailable()) {
       if (cartSummary.totalItems > 0) {
         mainButton.setParams({
-          text: `Order (${cartSummary.totalItems}) • ${formatPrice(cartSummary.totalAmount)}`,
+          text: `${t('Order')} (${cartSummary.totalItems}) • ${format.number(cartSummary.totalAmount, 'currency')}`,
           isVisible: true,
         });
       } else {
         mainButton.setParams({ isVisible: false });
       }
     }
-  }, [cartSummary]);
+  }, [cartSummary, t, format]);
 
   useEffect(() => {
     if (mainButton.onClick.isAvailable()) {
@@ -72,21 +75,21 @@ export function MenuView() {
   )?.items || [];
 
   const getCategoryName = (category: MenuCategory) => {
-    if (language === 'km' && category.nameKh) {
+    if (locale === 'km' && category.nameKh) {
       return category.nameKh;
     }
     return category.name;
   };
 
   const getItemName = (item: MenuItem) => {
-    if (language === 'km' && item.nameKh) {
+    if (locale === 'km' && item.nameKh) {
       return item.nameKh;
     }
     return item.name;
   };
 
   const getItemDescription = (item: MenuItem) => {
-    if (language === 'km' && item.descriptionKh) {
+    if (locale === 'km' && item.descriptionKh) {
       return item.descriptionKh;
     }
     return item.description;
@@ -98,7 +101,7 @@ export function MenuView() {
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <Spinner size="l" />
-            <p className="mt-4 text-[--tg-theme-hint-color]">Loading menu...</p>
+            <p className="mt-4 text-[--tg-theme-hint-color]">{t('Loading menu')}...</p>
           </div>
         </div>
       </Page>
@@ -125,7 +128,7 @@ export function MenuView() {
         <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] z-10">
           <div className="p-4">
             <Title level="2" className="text-[--tg-theme-text-color]">
-              {language === 'km' && currentRestaurant?.nameKh 
+              {locale === 'km' && currentRestaurant?.nameKh 
                 ? currentRestaurant.nameKh 
                 : currentRestaurant?.name}
             </Title>
@@ -135,12 +138,12 @@ export function MenuView() {
                 <div className="flex items-center space-x-1">
                   <Clock className="w-4 h-4 text-[--tg-theme-hint-color]" />
                   <Caption level="1" className="text-[--tg-theme-hint-color]">
-                    ~{kitchenStatus.data.data.estimatedWaitTime} min
+                    ~{kitchenStatus.data.data.estimatedWaitTime} {t('mins')}
                   </Caption>
                 </div>
                 <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 <Caption level="1" className="text-[--tg-theme-hint-color]">
-                  {kitchenStatus.data.data.activeOrdersCount} orders in queue
+                  {kitchenStatus.data.data.activeOrdersCount} {t('orders in queue')}
                 </Caption>
               </div>
             )}
@@ -170,7 +173,6 @@ export function MenuView() {
               key={item.id}
               item={item}
               onSelect={() => setSelectedItem(item)}
-              language={language}
               getItemName={getItemName}
               getItemDescription={getItemDescription}
             />
@@ -204,7 +206,6 @@ export function MenuView() {
             item={selectedItem}
             isOpen={!!selectedItem}
             onClose={() => setSelectedItem(null)}
-            language={language}
           />
         )}
 
@@ -220,7 +221,6 @@ export function MenuView() {
 interface MenuItemCardProps {
   item: MenuItem;
   onSelect: () => void;
-  language: 'en' | 'km';
   getItemName: (item: MenuItem) => string;
   getItemDescription: (item: MenuItem) => string | undefined;
 }
@@ -228,10 +228,11 @@ interface MenuItemCardProps {
 function MenuItemCard({ 
   item, 
   onSelect, 
-  language,
   getItemName,
   getItemDescription 
 }: MenuItemCardProps) {
+  const t = useTranslations('MenuView');
+  const format = useFormatter();
   const handleSelect = () => {
     onSelect();
   };
@@ -257,7 +258,7 @@ function MenuItemCard({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Title level="3" className="text-[--tg-theme-link-color]">
-                  {formatPrice(item.price)}
+                  {format.number(item.price, 'currency')}
                 </Title>
                 
                 <div className="flex items-center space-x-1 text-[--tg-theme-hint-color]">
@@ -289,7 +290,7 @@ function MenuItemCard({
         {!item.isAvailable && (
           <div className="mt-2">
             <Badge type='dot' mode="critical">
-              {language === 'km' ? 'អស់ហើយ' : 'Out of Stock'}
+              {t('Out of Stock')}
             </Badge>
           </div>
         )}

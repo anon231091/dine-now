@@ -8,8 +8,6 @@ export interface AppConfig {
   port: number;
   nodeEnv: string;
   corsOrigin: string[];
-  jwtSecret: string;
-  jwtExpiresIn: string;
   uploadPath: string;
   maxFileSize: number;
   rateLimitWindowMs: number;
@@ -25,8 +23,6 @@ export const config: AppConfig = {
   port: parseInt(process.env.PORT || '3001'),
   nodeEnv: process.env.NODE_ENV || 'development',
   corsOrigin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
-  jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   uploadPath: process.env.UPLOAD_PATH || path.join(process.cwd(), 'uploads'),
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '5242880'), // 5MB
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
@@ -40,10 +36,7 @@ export const config: AppConfig = {
 
 // Validation
 export const validateConfig = () => {
-  const required = [
-    'JWT_SECRET',
-    'TELEGRAM_BOT_TOKEN',
-  ];
+  const required = ['TELEGRAM_BOT_TOKEN'];
 
   const missing = required.filter(key => !process.env[key]);
   

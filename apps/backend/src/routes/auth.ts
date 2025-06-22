@@ -15,34 +15,9 @@ const router = Router();
 
 /**
  * @swagger
- * components:
- *   schemas:
- *     AuthResponse:
- *       type: object
- *       properties:
- *         success:
- *           type: boolean
- *         data:
- *           type: object
- *           properties:
- *             token:
- *               type: string
- *             user:
- *               type: object
- *             expiresIn:
- *               type: string
- *   securitySchemes:
- *     bearerAuth:
- *       type: http
- *       scheme: bearer
- *       bearerFormat: JWT
- */
-
-/**
- * @swagger
  * /api/auth/telegram:
  *   post:
- *     summary: Authenticate customer via Telegram data
+ *     summary: Authenticate customer via Telegram Mini App init data
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -51,20 +26,11 @@ const router = Router();
  *           schema:
  *             type: object
  *             properties:
- *               telegramId:
+ *               initData:
  *                 type: string
- *               firstName:
- *                 type: string
- *               lastName:
- *                 type: string
- *               username:
- *                 type: string
- *               hash:
- *                 type: string
- *                 description: Telegram auth hash for verification
+ *                 description: Raw init data string from Telegram Mini App
  *             required:
- *               - telegramId
- *               - firstName
+ *               - initData
  *     responses:
  *       200:
  *         description: Authentication successful
@@ -73,45 +39,45 @@ const router = Router();
  *             schema:
  *               $ref: '#/components/schemas/AuthResponse'
  *       400:
- *         description: Invalid Telegram data
+ *         description: Invalid init data
+ *       401:
+ *         description: Authentication failed
  */
 router.post(
   '/telegram',
-  validateBody(schemas.CreateCustomer.extend({
-    hash: schemas.Id.optional(),
-    authDate: schemas.Id.optional(),
+  validateBody(z.object({
+    initData: z.string().min(1, 'Init data is required'),
   })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { telegramId, firstName, lastName, username, hash } = req.body;
+    const { initData } = req.body;
 
-    logInfo('Telegram authentication attempt', { 
-      telegramId, 
-      firstName, 
-      username 
-    });
+    logInfo('Telegram authentication attempt via init data');
 
-    // In production, you should verify the Telegram hash
-    // For now, we'll skip verification for development
-    if (config.nodeEnv === 'production' && !hash) {
-      logWarning('Telegram auth without hash in production', { telegramId });
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    // Validate the init data
+    const validation = validateTelegramInitData(initData);
+    
+    if (!validation.isValid || !validation.data?.user) {
+      logWarning('Invalid Telegram init data');
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         success: false,
-        error: 'Authentication hash required',
+        error: 'Invalid authentication data',
       });
     }
 
+    const { user: telegramUser } = validation.data;
+
     // Get or create customer
     const customer = await queries.customer.getOrCreateCustomer({
-      telegramId: telegramId.toString(),
-      firstName,
-      lastName,
-      username,
+      telegramId: telegramUser.id.toString(),
+      firstName: telegramUser.first_name,
+      lastName: telegramUser.last_name,
+      username: telegramUser.username,
     });
 
     if (!customer) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        error: 'Failed to get or create customer',
+        error: 'Failed to create or retrieve customer',
       });
     }
 
@@ -123,7 +89,7 @@ router.post(
         type: 'customer'
       },
       config.jwtSecret,
-      { expiresIn: '7d' }
+      { expiresIn: config.jwtExpiresIn as any }
     );
 
     logInfo('Customer authenticated successfully', { 
@@ -153,7 +119,7 @@ router.post(
  * @swagger
  * /api/auth/staff:
  *   post:
- *     summary: Authenticate staff member via Telegram data
+ *     summary: Authenticate staff member via Telegram init data
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -162,14 +128,14 @@ router.post(
  *           schema:
  *             type: object
  *             properties:
- *               telegramId:
+ *               initData:
  *                 type: string
+ *                 description: Raw init data string from Telegram Mini App
  *               restaurantId:
  *                 type: string
- *               hash:
- *                 type: string
+ *                 description: Restaurant ID for staff validation
  *             required:
- *               - telegramId
+ *               - initData
  *               - restaurantId
  *     responses:
  *       200:
@@ -180,17 +146,27 @@ router.post(
 router.post(
   '/staff',
   validateBody(z.object({
-    telegramId: schemas.TelegramId.transform(id => id.toString()),
+    initData: z.string().min(1, 'Init data is required'),
     restaurantId: schemas.Id,
-    hash: schemas.Id.optional(),
   })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { telegramId, restaurantId, hash: _ } = req.body;
+    const { initData, restaurantId } = req.body;
 
-    logInfo('Staff authentication attempt', { 
-      telegramId, 
-      restaurantId 
-    });
+    logInfo('Staff authentication attempt via init data', { restaurantId });
+
+    // Validate the init data
+    const validation = validateTelegramInitData(initData);
+    
+    if (!validation.isValid || !validation.data?.user) {
+      logWarning('Invalid Telegram init data for staff');
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        success: false,
+        error: 'Invalid authentication data',
+      });
+    }
+
+    const { user: telegramUser } = validation.data;
+    const telegramId = telegramUser.id.toString();
 
     // Verify staff exists and is active
     const staffData = await queries.staff.getStaffByTelegramId(telegramId, restaurantId);
@@ -206,7 +182,22 @@ router.post(
       });
     }
 
-    // Generate JWT token
+    // Update staff info if changed
+    if (staffData.staff.firstName !== telegramUser.first_name ||
+        staffData.staff.lastName !== telegramUser.last_name ||
+        staffData.staff.username !== telegramUser.username) {
+      // You might want to update staff info here
+      logInfo('Staff info changed in Telegram', {
+        staffId: staffData.staff.id,
+        changes: {
+          firstName: telegramUser.first_name,
+          lastName: telegramUser.last_name,
+          username: telegramUser.username,
+        }
+      });
+    }
+
+    // Generate JWT token with staff role
     const token = jwt.sign(
       { 
         staffId: staffData.staff.id,
@@ -216,7 +207,7 @@ router.post(
         type: 'staff'
       },
       config.jwtSecret,
-      { expiresIn: '7d' }
+      { expiresIn: config.jwtExpiresIn as any }
     );
 
     logInfo('Staff authenticated successfully', { 
@@ -396,7 +387,7 @@ router.post(
           exp: undefined, // Remove old expiry
         },
         config.jwtSecret,
-        { expiresIn: '7d' }
+        { expiresIn: config.jwtExpiresIn as any }
       );
 
       logInfo('Token refreshed successfully', { 
