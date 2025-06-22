@@ -15,12 +15,7 @@ import { logError, logWarning } from '../utils/logger';
 
 // Extended Request interface
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    telegramId: string;
-    role?: string;
-    restaurantId?: string;
-  };
+  user?: any;
   restaurant?: {
     id: string;
     name: string;
@@ -58,7 +53,7 @@ export const errorHandler = (
     });
   }
 
-  if (error.name === 'JsonWebTokenError') {
+  if (error.name === 'JsonWebTokenError' || error.message === 'Unauthorized') {
     return res.status(HTTP_STATUS.UNAUTHORIZED).json({
       success: false,
       error: ERROR_MESSAGES.UNAUTHORIZED,
@@ -136,25 +131,27 @@ export const authMiddleware = async (
     // <auth-type> must be "tma", and <auth-data> is Telegram Mini Apps init data.
     const [authType, authData = ''] = (req.header('authorization') || '').split(' ');
 
-    if (!authData || authType != 'tma') {
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: ERROR_MESSAGES.UNAUTHORIZED,
-      });
-    }
+    switch (authType) {
+      case 'tma': {
+        try {
+          // Validate init data.
+          validate(authData, config.telegramBotToken, {
+            // We consider init data sign valid for 1 hour from their creation moment.
+            expiresIn: 3600,
+          });
 
-    try {
-      // Validate init data.
-      validate(authData, config.telegramBotToken, {
-        // We consider init data sign valid for 1 hour from their creation moment.
-        expiresIn: 3600,
-      });
+          // Parse init data. We will surely need it in the future.
+          const { user } = parse(authData);
+          req.user = user;
 
-      // Parse init data. We will surely need it in the future.
-      let initData = parse(authData);
-      return next();
-    } catch (e) {
-      return next(e);
+          return next();
+        } catch (e) {
+          return next(e);
+        }
+      }
+      // ... other authorization methods.
+      default:
+        return next(new Error('Unauthorized'));
     }
 };
 
