@@ -14,6 +14,7 @@ import { Minus, Plus, Trash2, ShoppingBag, Clock } from 'lucide-react';
 import { useCartStore, useRestaurantStore } from '@/store';
 import { useCreateOrder } from '@/lib/api';
 import { getSpiceLevelText } from '@dine-now/shared';
+import { formatVariantName, getSizeDisplayName } from '@/lib/api';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -57,8 +58,8 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         tableId: currentTable.id,
         orderItems: items.map(item => ({
           menuItemId: item.menuItem.id,
+          variantId: item.variant.id, // Now includes variant ID
           quantity: item.quantity,
-          size: item.size,
           spiceLevel: item.spiceLevel,
           notes: item.notes,
         })),
@@ -83,6 +84,10 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       return item.menuItem.nameKh;
     }
     return item.menuItem.name;
+  };
+
+  const getVariantDisplayName = (variant: any) => {
+    return formatVariantName(variant, locale) || getSizeDisplayName(variant.size, locale);
   };
 
   if (items.length === 0) {
@@ -120,7 +125,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         {/* Cart Items */}
         <div className="space-y-3">
           {items.map((item, index) => (
-            <Card key={index} className="p-4">
+            <Card key={`${item.menuItem.id}-${item.variant.id}-${index}`} className="p-4">
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -129,21 +134,27 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                     </Title>
                     
                     <div className="space-y-1">
-                      {item.size && item.size !== 'medium' && (
-                        <Caption level="1" className="text-[--tg-theme-hint-color]">
-                          {t('Size:')} {item.size}
-                        </Caption>
-                      )}
+                      {/* Variant/Size Information */}
+                      <Caption level="1" className="text-[--tg-theme-hint-color]">
+                        {t('Size:')} {getVariantDisplayName(item.variant)}
+                      </Caption>
                       
+                      {/* Price per unit */}
+                      <Caption level="1" className="text-[--tg-theme-hint-color]">
+                        {format.number(item.variant.price, 'currency')} {t('each')}
+                      </Caption>
+                      
+                      {/* Spice Level */}
                       {item.spiceLevel && item.spiceLevel !== 'none' && (
                         <Caption level="1" className="text-[--tg-theme-hint-color]">
                           {t('Spice:')} {getSpiceLevelText(item.spiceLevel)}
                         </Caption>
                       )}
                       
+                      {/* Special Notes */}
                       {item.notes && (
                         <Caption level="1" className="text-[--tg-theme-hint-color] italic">
-                          {item.notes}
+                          {t('Notes:')} {item.notes}
                         </Caption>
                       )}
                     </div>
@@ -201,9 +212,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           <Input
             value={orderNotes}
             onChange={(e) => setOrderNotes(e.target.value)}
-            placeholder={
-              t('Add notes for your order...')
-            }
+            placeholder={t('Add notes for your order...')}
             maxLength={500}
           />
         </Card>

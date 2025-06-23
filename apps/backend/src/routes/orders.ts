@@ -75,36 +75,45 @@ router.post(
 
     const restaurantId = tableData.restaurant.id;
 
-    // Validate all menu items and calculate totals
+    // Validate all order items and their variants
     const validatedOrderItems = [];
     let totalAmount = 0;
     let totalPreparationTime = 0;
 
     for (const orderItem of orderItems) {
-      const menuItem = await queries.menu.getMenuItemById(orderItem.menuItemId);
+      // Get variant information which includes menu item details
+      const variantData = await queries.menu.getVariantById(orderItem.variantId);
       
-      if (!menuItem || !menuItem.item.isAvailable) {
+      if (!variantData || !variantData.variant.isAvailable || !variantData.item.isAvailable) {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
-          error: `Menu item ${orderItem.menuItemId} is not available`,
+          error: `Menu item variant ${orderItem.variantId} is not available`,
         });
       }
 
-      const unitPrice = parseFloat(menuItem.item.price);
+      // Verify the menu item matches what was requested
+      if (variantData.item.id !== orderItem.menuItemId) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: `Variant ${orderItem.variantId} does not belong to menu item ${orderItem.menuItemId}`,
+        });
+      }
+
+      const unitPrice = parseFloat(variantData.variant.price);
       const subtotal = calculateSubtotal(unitPrice, orderItem.quantity);
       totalAmount += subtotal;
       
-      // Calculate preparation time
+      // Calculate preparation time based on base menu item time
       const itemPrepTime = estimatePreparationTime(
-        menuItem.item.preparationTimeMinutes,
+        variantData.item.preparationTimeMinutes,
         orderItem.quantity
       );
       totalPreparationTime = Math.max(totalPreparationTime, itemPrepTime);
 
       validatedOrderItems.push({
         menuItemId: orderItem.menuItemId,
+        variantId: orderItem.variantId,
         quantity: orderItem.quantity,
-        size: orderItem.size,
         spiceLevel: orderItem.spiceLevel,
         notes: orderItem.notes,
         unitPrice: unitPrice.toString(),
@@ -538,6 +547,7 @@ router.get(
       ordersMap.get(orderId).items.push({
         orderItem: row.orderItems,
         menuItem: row.menuItem,
+        variant: row.variant, // Now includes variant information
       });
     }
 

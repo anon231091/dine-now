@@ -18,7 +18,8 @@ import { mainButton } from '@telegram-apps/sdk-react';
 import { ShoppingCart, Plus, Clock, Search } from 'lucide-react';
 import { useMenu, useKitchenStatus } from '@/lib/api';
 import { useRestaurantStore, useCartStore, useUIStore } from '@/store';
-import { MenuItem, MenuCategory } from '@dine-now/shared';
+import { MenuItem, MenuCategory, MenuItemVariant } from '@dine-now/shared';
+import { getDefaultVariant, getVariantPrice, getSizeDisplayName } from '@/lib/api';
 import { MenuItemModal } from './MenuItemModal';
 import { CartDrawer } from './CartDrawer';
 import { Page } from './Page';
@@ -32,7 +33,7 @@ export function MenuView() {
   const { showCart, toggleCart } = useUIStore();
   
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<(MenuItem & { variants: MenuItemVariant[]; defaultVariant?: MenuItemVariant }) | null>(null);
   
   const { data: menuResponse, isLoading } = useMenu(currentRestaurant?.id || '');
   const { data: kitchenStatus } = useKitchenStatus(currentRestaurant?.id || '');
@@ -168,7 +169,7 @@ export function MenuView() {
 
         {/* Menu Items */}
         <div className="p-4 space-y-3">
-          {currentCategoryItems.map((item: MenuItem) => (
+          {currentCategoryItems.map((item: MenuItem & { variants: MenuItemVariant[] }) => (
             <MenuItemCard
               key={item.id}
               item={item}
@@ -219,7 +220,7 @@ export function MenuView() {
 }
 
 interface MenuItemCardProps {
-  item: MenuItem;
+  item: MenuItem & { variants: MenuItemVariant[] };
   onSelect: () => void;
   getItemName: (item: MenuItem) => string;
   getItemDescription: (item: MenuItem) => string | undefined;
@@ -233,9 +234,36 @@ function MenuItemCard({
 }: MenuItemCardProps) {
   const t = useTranslations('MenuView');
   const format = useFormatter();
+  const locale = useLocale();
+  
+  // Get default variant for display
+  const defaultVariant = getDefaultVariant(item);
+  const displayPrice = defaultVariant ? getVariantPrice(defaultVariant) : 0;
+  
+  // Get price range if there are multiple variants
+  const priceRange = useMemo(() => {
+    if (!item.variants || item.variants.length <= 1) return null;
+    
+    const prices = item.variants
+      .filter(v => v.isAvailable)
+      .map(v => getVariantPrice(v))
+      .sort((a, b) => a - b);
+    
+    if (prices.length === 0) return null;
+    if (prices[0] === prices[prices.length - 1]) return null;
+    
+    return {
+      min: prices[0],
+      max: prices[prices.length - 1]
+    };
+  }, [item.variants]);
+
   const handleSelect = () => {
     onSelect();
   };
+
+  const availableVariants = item.variants?.filter(v => v.isAvailable) || [];
+  const hasAvailableVariants = availableVariants.length > 0;
 
   return (
     <Card className="cursor-pointer" onClick={handleSelect}>
@@ -257,9 +285,22 @@ function MenuItemCard({
             
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <Title level="3" className="text-[--tg-theme-link-color]">
-                  {format.number(item.price, 'currency')}
-                </Title>
+                <div className="flex flex-col">
+                  <Title level="3" className="text-[--tg-theme-link-color]">
+                    {priceRange ? (
+                      `${format.number(priceRange.min, 'currency')} - ${format.number(priceRange.max, 'currency')}`
+                    ) : (
+                      format.number(displayPrice, 'currency')
+                    )}
+                  </Title>
+                  
+                  {/* Show available sizes */}
+                  {item.variants && item.variants.length > 1 && (
+                    <Caption level="1" className="text-[--tg-theme-hint-color] text-xs">
+                      {availableVariants.map(v => getSizeDisplayName(v.size, locale)).join(', ')}
+                    </Caption>
+                  )}
+                </div>
                 
                 <div className="flex items-center space-x-1 text-[--tg-theme-hint-color]">
                   <Clock className="w-4 h-4" />
@@ -269,7 +310,11 @@ function MenuItemCard({
                 </div>
               </div>
               
-              <Button mode="outline" size="s">
+              <Button 
+                mode="outline" 
+                size="s"
+                disabled={!item.isAvailable || !hasAvailableVariants}
+              >
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -287,10 +332,10 @@ function MenuItemCard({
           )}
         </div>
         
-        {!item.isAvailable && (
+        {(!item.isAvailable || !hasAvailableVariants) && (
           <div className="mt-2">
             <Badge type='dot' mode="critical">
-              {t('Out of Stock')}
+              {!item.isAvailable ? t('Out of Stock') : t('No sizes available')}
             </Badge>
           </div>
         )}

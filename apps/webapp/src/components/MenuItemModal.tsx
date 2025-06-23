@@ -13,12 +13,13 @@ import {
   Card
 } from '@telegram-apps/telegram-ui';
 import { Minus, Plus, Clock, X } from 'lucide-react';
-import { MenuItem, SpiceLevel, ItemSize, Currency } from '@dine-now/shared';
+import { MenuItem, MenuItemVariant, SpiceLevel } from '@dine-now/shared';
 import { useCartStore } from '@/store';
+import { getDefaultVariant, getVariantPrice, formatVariantName, getSizeDisplayName } from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface MenuItemModalProps {
-  item: MenuItem;
+  item: MenuItem & { variants: MenuItemVariant[]; defaultVariant?: MenuItemVariant };
   isOpen: boolean;
   onClose: () => void;
 }
@@ -27,8 +28,12 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
   const t = useTranslations('MenuItemModal');
   const locale = useLocale();
   const format = useFormatter();
+  
+  // Initialize with default variant
+  const defaultVariant = getDefaultVariant(item) || item.variants?.[0];
+  
   const [quantity, setQuantity] = useState(1);
-  const [selectedSize, setSelectedSize] = useState<ItemSize>(ItemSize.MEDIUM);
+  const [selectedVariant, setSelectedVariant] = useState<MenuItemVariant | null>(defaultVariant);
   const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<SpiceLevel>(SpiceLevel.NONE);
   const [notes, setNotes] = useState('');
   
@@ -48,20 +53,19 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
     return item.description;
   };
 
-  const getSizePriceMultiplier = (size: ItemSize): number => {
-    switch (size) {
-      case 'small': return 0.8;
-      case 'large': return 1.3;
-      default: return 1;
-    }
-  };
-
-  const finalPrice = item.price * getSizePriceMultiplier(selectedSize);
-  const totalPrice = finalPrice * quantity;
+  const currentPrice = selectedVariant ? getVariantPrice(selectedVariant) : 0;
+  const totalPrice = currentPrice * quantity;
 
   const handleQuantityChange = (delta: number) => {
     const newQuantity = Math.max(1, Math.min(10, quantity + delta));
     setQuantity(newQuantity);
+  };
+
+  const handleVariantChange = (variantId: string) => {
+    const variant = item.variants?.find(v => v.id === variantId);
+    if (variant) {
+      setSelectedVariant(variant);
+    }
   };
 
   const handleAddToCart = () => {
@@ -70,38 +74,54 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
       return;
     }
 
+    if (!selectedVariant) {
+      toast.error(t('Please select a size'));
+      return;
+    }
+
+    if (!selectedVariant.isAvailable) {
+      toast.error(t('This size is currently unavailable'));
+      return;
+    }
+
     addItem({
-      menuItem: { ...item, price: finalPrice },
+      menuItem: item,
+      variant: selectedVariant,
       quantity,
-      size: selectedSize,
       spiceLevel: selectedSpiceLevel,
       notes: notes.trim() || undefined,
     });
 
     toast.success(
-      `{${t('Added')} ${getItemName()} ${t('to cart')}`
+      `${t('Added')} ${getItemName()} ${t('to cart')}`
     );
     onClose();
   };
 
-  const formatPrice = (amount: number, currency: Currency) => format.number(amount, {
-    style: 'currency',
-    currency,
-  });
-
   const spiceLevelOptions = [
     { value: SpiceLevel.NONE, label: t('No Spice') },
-    { value: SpiceLevel.MILD, label: t('Mild') },
-    { value: SpiceLevel.MEDIUM, label: t('Medium') },
+    { value: SpiceLevel.REGULAR, label: t('Regular') },
     { value: SpiceLevel.SPICY, label: t('Spicy') },
     { value: SpiceLevel.VERY_SPICY, label: t('Very Spicy') },
   ];
 
-  const sizeOptions = [
-    { value: ItemSize.SMALL, label: t('Small'), price: finalPrice * 0.8 },
-    { value: ItemSize.MEDIUM, label: t('Medium'), price: finalPrice },
-    { value: ItemSize.LARGE, label: t('Large'), price: finalPrice * 1.3 },
-  ];
+  if (!item.variants || item.variants.length === 0) {
+    return (
+      <Modal open={isOpen} onOpenChange={onClose}>
+        <div className="p-4 text-center">
+          <Title level="2" className="text-[--tg-theme-text-color] mb-4">
+            {t('Item Unavailable')}
+          </Title>
+          <p className="text-[--tg-theme-hint-color] mb-4">
+            {t('This item is not available at the moment.')}
+          </p>
+          <Button mode="filled" onClick={onClose}>
+            {t('Close')}
+          </Button>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -148,34 +168,49 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
             </Caption>
           </div>
           <Title level="3" className="text-[--tg-theme-link-color]">
-            {format.number(finalPrice, 'currency')}
+            {format.number(currentPrice, 'currency')}
           </Title>
         </div>
 
-        {/* Size Selection */}
+        {/* Size/Variant Selection */}
         <Card className="p-4">
           <Title level="3" className="text-[--tg-theme-text-color] mb-3">
             {t('Size')}
           </Title>
           <div className="space-y-2">
-            {sizeOptions.map((size) => (
+            {item.variants.map((variant) => (
               <button
-                key={size.value}
-                className={`w-full p-3 rounded-lg border transition-colors ${
-                  selectedSize === size.value
+                key={variant.id}
+                disabled={!variant.isAvailable}
+                className={`w-full p-3 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  selectedVariant?.id === variant.id
                     ? 'border-[--tg-theme-link-color] bg-[--tg-theme-link-color]/10'
                     : 'border-[--tg-theme-separator-color] hover:bg-[--tg-theme-secondary-bg-color]'
                 }`}
-                onClick={() => {
-                  setSelectedSize(size.value as ItemSize);
-                }}
+                onClick={() => handleVariantChange(variant.id)}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[--tg-theme-text-color]">{size.label}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[--tg-theme-text-color] font-medium">
+                      {formatVariantName(variant, locale) || getSizeDisplayName(variant.size, locale)}
+                    </span>
+                    {variant.isDefault && (
+                      <Badge className="text-xs bg-[--tg-theme-link-color] text-white px-2 py-1 rounded">
+                        {t('Default')}
+                      </Badge>
+                    )}
+                  </div>
                   <span className="text-[--tg-theme-hint-color]">
-                    {format.number(size.price, 'currency')}
+                    {format.number(getVariantPrice(variant), 'currency')}
                   </span>
                 </div>
+                {!variant.isAvailable && (
+                  <div className="text-left mt-1">
+                    <Caption level="1" className="text-[--tg-theme-destructive-text-color]">
+                      {t('Not Available')}
+                    </Caption>
+                  </div>
+                )}
               </button>
             ))}
           </div>
@@ -188,8 +223,8 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
           </Title>
           <Select
             value={selectedSpiceLevel}
-            onChange={(value) => {
-              setSelectedSpiceLevel(value.target.value as SpiceLevel);
+            onChange={(e) => {
+              setSelectedSpiceLevel(e.target.value as SpiceLevel);
             }}
           >
             {spiceLevelOptions.map((option) => (
@@ -208,9 +243,7 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
           <Input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder={
-              t('Add notes to kitchen...')
-            }
+            placeholder={t('Add notes to kitchen...')}
             maxLength={200}
           />
         </Card>
@@ -247,11 +280,13 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
             mode="filled"
             size="l"
             stretched
-            disabled={!item.isAvailable}
+            disabled={!item.isAvailable || !selectedVariant?.isAvailable}
             onClick={handleAddToCart}
           >
             {!item.isAvailable ? (
               t('Out of Stock')
+            ) : !selectedVariant?.isAvailable ? (
+              t('Size Not Available')
             ) : (
               `${t('Add to Cart')} • ${format.number(totalPrice, 'currency')}`
             )}
@@ -259,5 +294,14 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
         </div>
       </div>
     </Modal>
+  );
+}
+
+// Helper Badge component since it might not be available in telegram-ui
+function Badge({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span className={className}>
+      {children}
+    </span>
   );
 }

@@ -48,12 +48,25 @@ export interface MenuItem {
   nameKh?: string;
   description?: string;
   descriptionKh?: string;
-  price: number;
-  currency: Currency;
   imageUrl?: string;
   preparationTimeMinutes: number;
   isAvailable: boolean;
   isActive: boolean;
+  sortOrder: number;
+  variants?: MenuItemVariant[]; // Available size variants
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface MenuItemVariant {
+  id: ID;
+  menuItemId: ID;
+  size: ItemSize;
+  name?: string; // Optional custom name for variant
+  nameKh?: string;
+  price: number;
+  isAvailable: boolean;
+  isDefault: boolean;
   sortOrder: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -71,15 +84,14 @@ export enum OrderStatus {
 
 export enum SpiceLevel {
   NONE = 'none',
-  MILD = 'mild',
-  MEDIUM = 'medium',
+  REGULAR = 'regular',
   SPICY = 'spicy',
   VERY_SPICY = 'very_spicy'
 }
 
 export enum ItemSize {
   SMALL = 'small',
-  MEDIUM = 'medium',
+  REGULAR = 'regular',
   LARGE = 'large'
 }
 
@@ -92,13 +104,14 @@ export interface OrderItem {
   id: ID;
   orderId: ID;
   menuItemId: ID;
+  variantId: ID; // References specific variant
   quantity: number;
-  size?: ItemSize;
   spiceLevel?: SpiceLevel;
   notes?: string;
-  unitPrice: number;
+  unitPrice: number; // Price from variant at time of order
   subtotal: number;
   menuItem?: MenuItem; // Populated when needed
+  variant?: MenuItemVariant; // Populated when needed
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -191,8 +204,8 @@ export interface CreateOrderDto {
   tableId: ID;
   orderItems: {
     menuItemId: ID;
+    variantId: ID; // Must specify which variant
     quantity: number;
-    size?: ItemSize;
     spiceLevel?: SpiceLevel;
     notes?: string;
   }[];
@@ -209,10 +222,18 @@ export interface MenuItemWithCategory extends MenuItem {
   category: MenuCategory;
 }
 
+export interface MenuItemWithVariants extends MenuItem {
+  variants: MenuItemVariant[];
+  defaultVariant?: MenuItemVariant;
+}
+
 export interface OrderWithDetails extends Order {
   table: Table;
   restaurant: Restaurant;
-  orderItems: (OrderItem & { menuItem: MenuItem })[];
+  orderItems: (OrderItem & { 
+    menuItem: MenuItem;
+    variant: MenuItemVariant;
+  })[];
 }
 
 // WebSocket events

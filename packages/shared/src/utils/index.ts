@@ -42,8 +42,7 @@ export const getOrderStatusText = (status: OrderStatus): string => {
 export const getSpiceLevelText = (level: SpiceLevel): string => {
   const texts = {
     [SpiceLevel.NONE]: 'No Spice',
-    [SpiceLevel.MILD]: 'Mild 🌶️',
-    [SpiceLevel.MEDIUM]: 'Medium 🌶️🌶️',
+    [SpiceLevel.REGULAR]: 'Regular 🌶️🌶️',
     [SpiceLevel.SPICY]: 'Spicy 🌶️🌶️🌶️',
     [SpiceLevel.VERY_SPICY]: 'Very Spicy 🌶️🌶️🌶️🌶️'
   };

@@ -4,6 +4,7 @@ import {
   Restaurant, 
   Table, 
   MenuItem, 
+  MenuItemVariant,
   Order, 
   SpiceLevel,
   ItemSize 
@@ -37,11 +38,11 @@ export const useRestaurantStore = create<RestaurantState>()(
   )
 );
 
-// Cart Store
+// Cart Store with Variants
 interface CartItem {
   menuItem: MenuItem;
+  variant: MenuItemVariant; // Required - specific variant chosen
   quantity: number;
-  size?: ItemSize;
   spiceLevel?: SpiceLevel;
   notes?: string;
   subtotal: number;
@@ -60,6 +61,8 @@ interface CartState {
     totalAmount: number;
     estimatedTime: number;
   };
+  // Helper to find if item+variant combo already exists
+  findExistingItemIndex: (menuItemId: string, variantId: string, spiceLevel?: SpiceLevel, notes?: string) => number;
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
@@ -67,12 +70,47 @@ export const useCartStore = create<CartState>((set, get) => ({
   totalAmount: 0,
   estimatedTime: 0,
   
+  findExistingItemIndex: (menuItemId: string, variantId: string, spiceLevel?: SpiceLevel, notes?: string) => {
+    const state = get();
+    return state.items.findIndex(item => 
+      item.menuItem.id === menuItemId && 
+      item.variant.id === variantId &&
+      item.spiceLevel === spiceLevel &&
+      item.notes === notes
+    );
+  },
+  
   addItem: (item) => {
-    const subtotal = item.menuItem.price * item.quantity;
+    const subtotal = item.variant.price * item.quantity;
     const newItem: CartItem = { ...item, subtotal };
     
     set((state) => {
-      const newItems = [...state.items, newItem];
+      // Check if this exact combination already exists
+      const existingIndex = get().findExistingItemIndex(
+        item.menuItem.id, 
+        item.variant.id, 
+        item.spiceLevel, 
+        item.notes
+      );
+      
+      let newItems;
+      if (existingIndex >= 0) {
+        // Update existing item quantity
+        newItems = [...state.items];
+        const existingItem = newItems[existingIndex];
+        const newQuantity = existingItem.quantity + item.quantity;
+        const newSubtotal = existingItem.variant.price * newQuantity;
+        
+        newItems[existingIndex] = {
+          ...existingItem,
+          quantity: newQuantity,
+          subtotal: newSubtotal
+        };
+      } else {
+        // Add as new item
+        newItems = [...state.items, newItem];
+      }
+      
       const totalAmount = newItems.reduce((sum, item) => sum + item.subtotal, 0);
       const estimatedTime = Math.max(...newItems.map(item => 
         item.menuItem.preparationTimeMinutes * (item.quantity > 1 ? 1.3 : 1)
@@ -93,15 +131,22 @@ export const useCartStore = create<CartState>((set, get) => ({
       
       if (item) {
         const updatedItem = { ...item, ...updates };
-        if (updates.quantity || updates.menuItem) {
-          updatedItem.subtotal = updatedItem.menuItem.price * updatedItem.quantity;
+        
+        // Recalculate subtotal if quantity or variant changed
+        if (updates.quantity !== undefined || updates.variant !== undefined) {
+          const variant = updates.variant || item.variant;
+          const quantity = updates.quantity !== undefined ? updates.quantity : item.quantity;
+          updatedItem.subtotal = variant.price * quantity;
         }
+        
         newItems[index] = updatedItem;
         
         const totalAmount = newItems.reduce((sum, item) => sum + item.subtotal, 0);
-        const estimatedTime = Math.max(...newItems.map(item => 
-          item.menuItem.preparationTimeMinutes * (item.quantity > 1 ? 1.3 : 1)
-        ));
+        const estimatedTime = newItems.length > 0 
+          ? Math.max(...newItems.map(item => 
+              item.menuItem.preparationTimeMinutes * (item.quantity > 1 ? 1.3 : 1)
+            ))
+          : 0;
         
         return {
           items: newItems,

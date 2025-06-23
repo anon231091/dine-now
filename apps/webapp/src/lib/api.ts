@@ -46,7 +46,7 @@ const createApiClient = (): AxiosInstance => {
 
 export const apiClient = createApiClient();
 
-// API Functions
+// API Functions with Variants Support
 export const api = {
   // Restaurants
   restaurants: {
@@ -59,28 +59,35 @@ export const api = {
       apiClient.get(`/restaurants/${id}/analytics`, { params }),
   },
 
-  // Menu
+  // Menu with Variants Support
   menu: {
     getByRestaurant: (restaurantId: string) => 
       apiClient.get(`/menu/${restaurantId}`),
+    
     search: (restaurantId: string, params: any) => 
       apiClient.get(`/menu/${restaurantId}/search`, { params }),
+    
     getItem: (itemId: string) => 
       apiClient.get(`/menu/item/${itemId}`),
+    
+    getVariant: (variantId: string) => 
+      apiClient.get(`/menu/variant/${variantId}`),
+    
     getCategories: (restaurantId: string) => 
       apiClient.get(`/menu/${restaurantId}/categories`),
+    
     getPopular: (restaurantId: string, params?: { limit?: number; days?: number }) => 
       apiClient.get(`/menu/${restaurantId}/popular`, { params }),
   },
 
-  // Orders
+  // Orders with Variants Support
   orders: {
     create: (data: {
       tableId: string;
       orderItems: Array<{
         menuItemId: string;
+        variantId: string; // Now required
         quantity: number;
-        size?: string;
         spiceLevel?: string;
         notes?: string;
       }>;
@@ -122,13 +129,33 @@ export const useKitchenStatus = (restaurantId: string) => {
   });
 };
 
-// Menu hooks
+// Menu hooks with variants support
 export const useMenu = (restaurantId: string) => {
   return useQuery({
     queryKey: ['menu', restaurantId],
     queryFn: () => api.menu.getByRestaurant(restaurantId),
     enabled: !!restaurantId,
     staleTime: 10 * 60 * 1000, // 10 minutes
+    select: (data) => {
+      // Process menu data to ensure variants are properly structured
+      if (data?.data?.data) {
+        return {
+          ...data,
+          data: {
+            ...data.data,
+            data: data.data.data.map((categoryGroup: any) => ({
+              ...categoryGroup,
+              items: categoryGroup.items?.map((item: any) => ({
+                ...item,
+                variants: item.variants || [],
+                defaultVariant: item.variants?.find((v: any) => v.isDefault) || item.variants?.[0]
+              })) || []
+            }))
+          }
+        };
+      }
+      return data;
+    }
   });
 };
 
@@ -137,6 +164,35 @@ export const useMenuItem = (itemId: string) => {
     queryKey: ['menu-item', itemId],
     queryFn: () => api.menu.getItem(itemId),
     enabled: !!itemId,
+    select: (data) => {
+      // Ensure variants are properly structured
+      if (data?.data?.data?.item) {
+        const item = data.data.data.item;
+        return {
+          ...data,
+          data: {
+            ...data.data,
+            data: {
+              ...data.data.data,
+              item: {
+                ...item,
+                variants: item.variants || [],
+                defaultVariant: item.variants?.find((v: any) => v.isDefault) || item.variants?.[0]
+              }
+            }
+          }
+        };
+      }
+      return data;
+    }
+  });
+};
+
+export const useMenuItemVariant = (variantId: string) => {
+  return useQuery({
+    queryKey: ['menu-variant', variantId],
+    queryFn: () => api.menu.getVariant(variantId),
+    enabled: !!variantId,
   });
 };
 
@@ -149,7 +205,7 @@ export const usePopularItems = (restaurantId: string, options?: { limit?: number
   });
 };
 
-// Order hooks
+// Order hooks with variants support
 export const useCreateOrder = () => {
   const queryClient = useQueryClient();
   
@@ -161,7 +217,15 @@ export const useCreateOrder = () => {
       return response.data;
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.error || 'Failed to place order');
+      const errorMessage = error.response?.data?.error || 'Failed to place order';
+      toast.error(errorMessage);
+      
+      // Log detailed error for debugging
+      console.error('Order creation failed:', {
+        error: errorMessage,
+        details: error.response?.data?.details,
+        status: error.response?.status
+      });
     },
   });
 };
@@ -172,6 +236,30 @@ export const useOrder = (orderId: string) => {
     queryFn: () => api.orders.getById(orderId),
     enabled: !!orderId,
     refetchInterval: 10000, // Refresh every 10 seconds for real-time updates
+    select: (data) => {
+      // Process order data to ensure variants are included
+      if (data?.data?.data?.orderItems) {
+        return {
+          ...data,
+          data: {
+            ...data.data,
+            data: {
+              ...data.data.data,
+              orderItems: data.data.data.orderItems.map((orderItem: any) => ({
+                ...orderItem,
+                // Ensure variant information is available
+                variant: orderItem.variant || {
+                  id: 'unknown',
+                  size: 'regular',
+                  price: orderItem.orderItem?.unitPrice || 0
+                }
+              }))
+            }
+          }
+        };
+      }
+      return data;
+    }
   });
 };
 
@@ -230,4 +318,38 @@ export const useWebSocket = () => {
       ws.close();
     };
   }, [setConnected, addMessage]);
+};
+
+// Helper functions for variants
+export const getDefaultVariant = (item: any) => {
+  if (!item?.variants?.length) return null;
+  return item.variants.find((v: any) => v.isDefault) || item.variants[0];
+};
+
+export const getVariantPrice = (variant: any) => {
+  return typeof variant?.price === 'number' ? variant.price : parseFloat(variant?.price || '0');
+};
+
+export const formatVariantName = (variant: any, locale: string = 'en') => {
+  if (locale === 'km' && variant?.nameKh) {
+    return variant.nameKh;
+  }
+  return variant?.name || variant?.size || 'Regular';
+};
+
+export const getSizeDisplayName = (size: string, locale: string = 'en') => {
+  const sizeNames = {
+    en: {
+      small: 'Small',
+      regular: 'Regular', 
+      large: 'Large'
+    },
+    km: {
+      small: 'តូច',
+      regular: 'ធម្មតា',
+      large: 'ធំ'
+    }
+  };
+  
+  return sizeNames[locale as keyof typeof sizeNames]?.[size as keyof typeof sizeNames.en] || size;
 };

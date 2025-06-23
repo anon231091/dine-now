@@ -103,12 +103,14 @@ export const tableQueries = {
   },
 };
 
-// Menu queries
+// Menu queries with variants support
 export const menuQueries = {
-  // Get menu by restaurant with categories and items
+  // Get menu by restaurant with categories, items, and variants
   getMenuByRestaurant: async (restaurantId: string) => {
     const db = getDatabase();
-    return db
+    
+    // Get menu items with their categories
+    const menuData = await db
       .select({
         category: schema.menuCategories,
         item: schema.menuItems,
@@ -130,9 +132,41 @@ export const menuQueries = {
         asc(schema.menuCategories.sortOrder),
         asc(schema.menuItems.sortOrder)
       );
+
+    // Get all variants for the restaurant's menu items
+    const variants = await db
+      .select({
+        variant: schema.menuItemVariants,
+        menuItemId: schema.menuItemVariants.menuItemId,
+      })
+      .from(schema.menuItemVariants)
+      .innerJoin(schema.menuItems, eq(schema.menuItemVariants.menuItemId, schema.menuItems.id))
+      .where(and(
+        eq(schema.menuItems.restaurantId, restaurantId),
+        eq(schema.menuItemVariants.isAvailable, true)
+      ))
+      .orderBy(asc(schema.menuItemVariants.sortOrder));
+
+    // Group variants by menu item ID
+    const variantsByMenuItem = new Map();
+    variants.forEach(({ variant, menuItemId }) => {
+      if (!variantsByMenuItem.has(menuItemId)) {
+        variantsByMenuItem.set(menuItemId, []);
+      }
+      variantsByMenuItem.get(menuItemId).push(variant);
+    });
+
+    // Attach variants to menu items
+    return menuData.map(row => ({
+      ...row,
+      item: row.item ? {
+        ...row.item,
+        variants: variantsByMenuItem.get(row.item.id) || []
+      } : null
+    }));
   },
 
-  // Get menu item by ID
+  // Get menu item by ID with variants
   getMenuItemById: async (id: string) => {
     const db = getDatabase();
     const result = await db
@@ -150,25 +184,70 @@ export const menuQueries = {
         eq(schema.menuItems.isAvailable, true)
       ))
       .limit(1);
+
+    if (!result[0]) return null;
+
+    // Get variants for this menu item
+    const variants = await db
+      .select()
+      .from(schema.menuItemVariants)
+      .where(and(
+        eq(schema.menuItemVariants.menuItemId, id),
+        eq(schema.menuItemVariants.isAvailable, true)
+      ))
+      .orderBy(asc(schema.menuItemVariants.sortOrder));
+
+    return {
+      ...result[0],
+      item: {
+        ...result[0].item,
+        variants
+      }
+    };
+  },
+
+  // Get variant by ID
+  getVariantById: async (variantId: string) => {
+    const db = getDatabase();
+    const result = await db
+      .select({
+        variant: schema.menuItemVariants,
+        item: schema.menuItems,
+        category: schema.menuCategories,
+      })
+      .from(schema.menuItemVariants)
+      .innerJoin(schema.menuItems, eq(schema.menuItemVariants.menuItemId, schema.menuItems.id))
+      .innerJoin(schema.menuCategories, eq(schema.menuItems.categoryId, schema.menuCategories.id))
+      .where(and(
+        eq(schema.menuItemVariants.id, variantId),
+        eq(schema.menuItemVariants.isAvailable, true),
+        eq(schema.menuItems.isActive, true),
+        eq(schema.menuItems.isAvailable, true)
+      ))
+      .limit(1);
+    
     return result[0] || null;
   },
 
-  // Search menu items
+  // Search menu items with variants
   searchMenuItems: async (params: {
     restaurantId: string;
     categoryId?: string;
     search?: string;
     minPrice?: number;
     maxPrice?: number;
+    size?: ItemSize;
     isAvailable?: boolean;
     pagination?: PaginationParams;
   }) => {
     const db = getDatabase();
-    const { restaurantId, categoryId, search, minPrice, maxPrice, isAvailable, pagination } = params;
+    const { restaurantId, categoryId, search, minPrice, maxPrice, size, isAvailable, pagination } = params;
     
+    // Build all conditions first
     const conditions = [
       eq(schema.menuItems.restaurantId, restaurantId),
       eq(schema.menuItems.isActive, true),
+      eq(schema.menuItemVariants.isAvailable, true), // Variant must be available
     ];
     
     if (categoryId) {
@@ -181,40 +260,62 @@ export const menuQueries = {
       );
     }
     
-    if (minPrice !== undefined) {
-      conditions.push(gte(schema.menuItems.price, minPrice.toString()));
-    }
-    
-    if (maxPrice !== undefined) {
-      conditions.push(lte(schema.menuItems.price, maxPrice.toString()));
-    }
-    
     if (isAvailable !== undefined) {
       conditions.push(eq(schema.menuItems.isAvailable, isAvailable));
     }
+
+    // Add variant-specific filters to conditions
+    if (size) {
+      conditions.push(eq(schema.menuItemVariants.size, size));
+    }
     
-    const query = db
+    if (minPrice !== undefined) {
+      conditions.push(gte(schema.menuItemVariants.price, minPrice.toString()));
+    }
+    
+    if (maxPrice !== undefined) {
+      conditions.push(lte(schema.menuItemVariants.price, maxPrice.toString()));
+    }
+
+    // Build the complete query with all conditions
+    let query = db
       .select({
         item: schema.menuItems,
         category: schema.menuCategories,
+        variant: schema.menuItemVariants,
       })
       .from(schema.menuItems)
       .innerJoin(schema.menuCategories, eq(schema.menuItems.categoryId, schema.menuCategories.id))
+      .innerJoin(schema.menuItemVariants, eq(schema.menuItems.id, schema.menuItemVariants.menuItemId))
       .where(and(...conditions))
-      .orderBy(asc(schema.menuItems.sortOrder));
+      .orderBy(asc(schema.menuItems.sortOrder), asc(schema.menuItemVariants.sortOrder));
     
     if (pagination) {
       const offset = (pagination.page - 1) * pagination.limit;
-      query.limit(pagination.limit).offset(offset);
+      query = query.limit(pagination.limit).offset(offset);
     }
     
-    return query;
+    const results = await query;
+
+    // Group variants by menu item
+    const itemsMap = new Map();
+    results.forEach(({ item, category, variant }) => {
+      if (!itemsMap.has(item.id)) {
+        itemsMap.set(item.id, {
+          item: { ...item, variants: [] },
+          category
+        });
+      }
+      itemsMap.get(item.id).item.variants.push(variant);
+    });
+
+    return Array.from(itemsMap.values());
   },
 };
 
-// Order queries
+// Order queries updated for variants
 export const orderQueries = {
-  // Create new order
+  // Create new order with variants
   createOrder: async (orderData: {
     customerTelegramId: bigint;
     customerName: string;
@@ -226,8 +327,8 @@ export const orderQueries = {
     notes?: string;
     orderItems: Array<{
       menuItemId: string;
+      variantId: string;
       quantity: number;
-      size?: ItemSize;
       spiceLevel?: SpiceLevel;
       notes?: string;
       unitPrice: string;
@@ -257,7 +358,7 @@ export const orderQueries = {
         return { order: null, orderItems: [] };
       }
 
-      // Insert order items
+      // Insert order items with variant references
       const orderItems = await tx
         .insert(schema.orderItems)
         .values(
@@ -272,7 +373,7 @@ export const orderQueries = {
     });
   },
 
-  // Get order by ID with details
+  // Get order by ID with details including variants
   getOrderById: async (id: string) => {
     const db = getDatabase();
     const result = await db
@@ -289,14 +390,16 @@ export const orderQueries = {
     
     if (!result[0]) return null;
     
-    // Get order items
+    // Get order items with menu items and variants
     const orderItems = await db
       .select({
         orderItem: schema.orderItems,
         menuItem: schema.menuItems,
+        variant: schema.menuItemVariants,
       })
       .from(schema.orderItems)
       .innerJoin(schema.menuItems, eq(schema.orderItems.menuItemId, schema.menuItems.id))
+      .innerJoin(schema.menuItemVariants, eq(schema.orderItems.variantId, schema.menuItemVariants.id))
       .where(eq(schema.orderItems.orderId, id));
     
     return {
@@ -409,7 +512,7 @@ export const orderQueries = {
     return updated;
   },
 
-  // Get active orders for kitchen
+  // Get active orders for kitchen with variants
   getActiveOrdersForKitchen: async (restaurantId: string) => {
     const db = getDatabase();
     return db
@@ -418,11 +521,13 @@ export const orderQueries = {
         table: schema.tables,
         orderItems: schema.orderItems,
         menuItem: schema.menuItems,
+        variant: schema.menuItemVariants,
       })
       .from(schema.orders)
       .innerJoin(schema.tables, eq(schema.orders.tableId, schema.tables.id))
       .innerJoin(schema.orderItems, eq(schema.orders.id, schema.orderItems.orderId))
       .innerJoin(schema.menuItems, eq(schema.orderItems.menuItemId, schema.menuItems.id))
+      .innerJoin(schema.menuItemVariants, eq(schema.orderItems.variantId, schema.menuItemVariants.id))
       .where(and(
         eq(schema.orders.restaurantId, restaurantId),
         inArray(schema.orders.status, ['pending', 'confirmed', 'preparing'])
@@ -431,7 +536,7 @@ export const orderQueries = {
   },
 };
 
-// Staff queries
+// Staff queries (unchanged)
 export const staffQueries = {
   // Get staff by telegram ID and restaurant
   getStaffByTelegramId: async (telegramId: bigint, restaurantId?: string) => {
@@ -480,7 +585,7 @@ export const staffQueries = {
   },
 };
 
-// Kitchen load queries
+// Kitchen load queries (unchanged)
 export const kitchenQueries = {
   // Get current kitchen load
   getKitchenLoad: async (restaurantId: string) => {
@@ -567,7 +672,7 @@ export const kitchenQueries = {
   },
 };
 
-// Analytics queries
+// Analytics queries updated for variants
 export const analyticsQueries = {
   // Get order statistics
   getOrderStats: async (restaurantId: string, dateFrom: Date, dateTo: Date) => {
@@ -590,13 +695,14 @@ export const analyticsQueries = {
     return stats;
   },
 
-  // Get popular menu items
+  // Get popular menu items with variants
   getPopularMenuItems: async (restaurantId: string, dateFrom: Date, dateTo: Date, limit: number = 10) => {
     const db = getDatabase();
     
     return db
       .select({
         menuItem: schema.menuItems,
+        variant: schema.menuItemVariants,
         totalQuantity: sql<number>`SUM(${schema.orderItems.quantity})`,
         totalRevenue: sql<number>`SUM(CAST(${schema.orderItems.subtotal} AS DECIMAL))`,
         orderCount: count(),
@@ -604,13 +710,14 @@ export const analyticsQueries = {
       .from(schema.orderItems)
       .innerJoin(schema.orders, eq(schema.orderItems.orderId, schema.orders.id))
       .innerJoin(schema.menuItems, eq(schema.orderItems.menuItemId, schema.menuItems.id))
+      .innerJoin(schema.menuItemVariants, eq(schema.orderItems.variantId, schema.menuItemVariants.id))
       .where(and(
         eq(schema.orders.restaurantId, restaurantId),
         gte(schema.orders.createdAt, dateFrom),
         lte(schema.orders.createdAt, dateTo),
         inArray(schema.orders.status, ['served', 'ready', 'preparing', 'confirmed'])
       ))
-      .groupBy(schema.menuItems.id)
+      .groupBy(schema.menuItems.id, schema.menuItemVariants.id)
       .orderBy(desc(sql`SUM(${schema.orderItems.quantity})`))
       .limit(limit);
   },

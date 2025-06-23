@@ -15,6 +15,28 @@ const router = Router();
  * @swagger
  * components:
  *   schemas:
+ *     MenuItemVariant:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         menuItemId:
+ *           type: string
+ *         size:
+ *           type: string
+ *           enum: [small, regular, large]
+ *         name:
+ *           type: string
+ *         nameKh:
+ *           type: string
+ *         price:
+ *           type: number
+ *         isAvailable:
+ *           type: boolean
+ *         isDefault:
+ *           type: boolean
+ *         sortOrder:
+ *           type: integer
  *     MenuItem:
  *       type: object
  *       properties:
@@ -26,14 +48,16 @@ const router = Router();
  *           type: string
  *         description:
  *           type: string
- *         price:
- *           type: number
  *         preparationTimeMinutes:
  *           type: integer
  *         imageUrl:
  *           type: string
  *         isAvailable:
  *           type: boolean
+ *         variants:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/MenuItemVariant'
  *     MenuCategory:
  *       type: object
  *       properties:
@@ -51,7 +75,7 @@ const router = Router();
  * @swagger
  * /api/menu/{restaurantId}:
  *   get:
- *     summary: Get restaurant menu with categories and items
+ *     summary: Get restaurant menu with categories, items, and variants
  *     tags: [Menu]
  *     parameters:
  *       - in: path
@@ -62,7 +86,7 @@ const router = Router();
  *         description: Restaurant ID
  *     responses:
  *       200:
- *         description: Menu data retrieved successfully
+ *         description: Menu data retrieved successfully with variants
  *         content:
  *           application/json:
  *             schema:
@@ -95,9 +119,9 @@ router.get(
       });
     }
 
-    logInfo('Fetching menu', { restaurantId });
+    logInfo('Fetching menu with variants', { restaurantId });
 
-    // Get menu data from database
+    // Get menu data from database (now includes variants)
     const menuData = await queries.menu.getMenuByRestaurant(restaurantId);
 
     // Group items by category
@@ -114,7 +138,12 @@ router.get(
       }
       
       if (item) {
-        menuByCategory.get(category.id).items.push(item);
+        // Ensure variants are included
+        const itemWithVariants = {
+          ...item,
+          variants: item.variants || []
+        };
+        menuByCategory.get(category.id).items.push(itemWithVariants);
       }
     }
 
@@ -133,7 +162,7 @@ router.get(
  * @swagger
  * /api/menu/{restaurantId}/search:
  *   get:
- *     summary: Search menu items
+ *     summary: Search menu items with variant support
  *     tags: [Menu]
  *     parameters:
  *       - in: path
@@ -155,12 +184,18 @@ router.get(
  *         name: minPrice
  *         schema:
  *           type: number
- *         description: Minimum price filter
+ *         description: Minimum price filter (applies to variants)
  *       - in: query
  *         name: maxPrice
  *         schema:
  *           type: number
- *         description: Maximum price filter
+ *         description: Maximum price filter (applies to variants)
+ *       - in: query
+ *         name: size
+ *         schema:
+ *           type: string
+ *           enum: [small, regular, large]
+ *         description: Filter by variant size
  *       - in: query
  *         name: isAvailable
  *         schema:
@@ -178,7 +213,7 @@ router.get(
  *           default: 20
  *     responses:
  *       200:
- *         description: Search results
+ *         description: Search results with variants
  */
 router.get(
   '/:restaurantId/search',
@@ -195,7 +230,7 @@ router.get(
       });
     }
 
-    logInfo('Searching menu items', { restaurantId, searchParams });
+    logInfo('Searching menu items with variants', { restaurantId, searchParams });
 
     const items = await queries.menu.searchMenuItems({
       restaurantId,
@@ -213,7 +248,7 @@ router.get(
  * @swagger
  * /api/menu/item/{itemId}:
  *   get:
- *     summary: Get menu item details
+ *     summary: Get menu item details with variants
  *     tags: [Menu]
  *     parameters:
  *       - in: path
@@ -223,7 +258,7 @@ router.get(
  *           type: string
  *     responses:
  *       200:
- *         description: Menu item details
+ *         description: Menu item details with variants
  *       404:
  *         description: Menu item not found
  */
@@ -239,7 +274,8 @@ router.get(
         error: "Undefined itemId"
       });
     }
-    logInfo('Fetching menu item', { itemId });
+    
+    logInfo('Fetching menu item with variants', { itemId });
 
     const itemData = await queries.menu.getMenuItemById(itemId);
 
@@ -256,6 +292,59 @@ router.get(
         item: itemData.item,
         category: itemData.category,
         restaurant: itemData.restaurant,
+      },
+    });
+  })
+);
+
+/**
+ * @swagger
+ * /api/menu/variant/{variantId}:
+ *   get:
+ *     summary: Get specific menu item variant details
+ *     tags: [Menu]
+ *     parameters:
+ *       - in: path
+ *         name: variantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Menu item variant details
+ *       404:
+ *         description: Variant not found
+ */
+router.get(
+  '/variant/:variantId',
+  validateParams(schemas.Id.transform((id) => ({ variantId: id }))),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { variantId } = req.params;
+
+    if (!variantId) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: "Undefined variantId"
+      });
+    }
+
+    logInfo('Fetching menu item variant', { variantId });
+
+    const variantData = await queries.menu.getVariantById(variantId);
+
+    if (!variantData) {
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
+        success: false,
+        error: 'Menu item variant not found',
+      });
+    }
+
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: {
+        variant: variantData.variant,
+        item: variantData.item,
+        category: variantData.category,
       },
     });
   })
@@ -312,7 +401,7 @@ router.get(
  * @swagger
  * /api/menu/{restaurantId}/popular:
  *   get:
- *     summary: Get popular menu items for a restaurant
+ *     summary: Get popular menu items and variants for a restaurant
  *     tags: [Menu]
  *     parameters:
  *       - in: path
@@ -333,7 +422,7 @@ router.get(
  *         description: Number of days to look back for popularity data
  *     responses:
  *       200:
- *         description: Popular menu items
+ *         description: Popular menu items with variants
  */
 router.get(
   '/:restaurantId/popular',
@@ -350,7 +439,7 @@ router.get(
       });
     }
 
-    logInfo('Fetching popular menu items', { restaurantId, limit, days });
+    logInfo('Fetching popular menu items with variants', { restaurantId, limit, days });
 
     const dateFrom = new Date();
     dateFrom.setDate(dateFrom.getDate() - days);

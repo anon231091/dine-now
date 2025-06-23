@@ -71,7 +71,6 @@ const sampleData = {
       nameKh: 'នំបញ្ចុកសាច់',
       description: 'Fresh vegetables and herbs wrapped in rice paper, served with peanut sauce',
       descriptionKh: 'បន្លែស្រស់និងស្លឹកជីរុំក្នុងកាកេតបាយ បញ្ជាជាមួយទឹកជ្រលក់សណ្តែកដី',
-      price: '4.50',
       preparationTimeMinutes: 10,
     },
     {
@@ -79,7 +78,6 @@ const sampleData = {
       nameKh: 'នំត្រីចៀន',
       description: 'Deep-fried fish cakes with cucumber relish',
       descriptionKh: 'នំត្រីចៀនក្រុបជាមួយត្រសក់ជូរ',
-      price: '6.00',
       preparationTimeMinutes: 15,
     },
     
@@ -89,7 +87,6 @@ const sampleData = {
       nameKh: 'អាម៉ុកត្រី',
       description: 'Traditional steamed fish curry in banana leaf',
       descriptionKh: 'ការីត្រីចំហុយដាក់ស្លឹកចេកប្រពៃណី',
-      price: '12.00',
       preparationTimeMinutes: 25,
     },
     {
@@ -97,7 +94,6 @@ const sampleData = {
       nameKh: 'លុកឡាក់សាច់គោ',
       description: 'Cambodian-style stir-fried beef with lime pepper sauce',
       descriptionKh: 'សាច់គោឆាបែបខ្មែរជាមួយទឹកជ្រលក់ម្រេចក្រូច',
-      price: '15.00',
       preparationTimeMinutes: 20,
     },
     {
@@ -105,7 +101,6 @@ const sampleData = {
       nameKh: 'ក្រមុំខ្មែរ',
       description: 'Rich coconut curry with chicken and vegetables',
       descriptionKh: 'ក្រមុំទឹកដូងមាន់និងបន្លែ',
-      price: '13.50',
       preparationTimeMinutes: 30,
     },
 
@@ -115,7 +110,6 @@ const sampleData = {
       nameKh: 'នំអន្សម',
       description: 'Traditional sticky rice cake with banana',
       descriptionKh: 'នំអន្សមបាយដំណើបប្រពៃណីជាមួយចេក',
-      price: '3.50',
       preparationTimeMinutes: 5,
     },
     {
@@ -123,7 +117,6 @@ const sampleData = {
       nameKh: 'សង់ខ្យាដុត',
       description: 'Cambodian-style baked custard with palm sugar',
       descriptionKh: 'សង់ខ្យាដុតបែបខ្មែរជាមួយស្ករត្នោត',
-      price: '4.00',
       preparationTimeMinutes: 8,
     },
 
@@ -133,7 +126,6 @@ const sampleData = {
       nameKh: 'កាហ្វេទឹកកក',
       description: 'Traditional Cambodian iced coffee with condensed milk',
       descriptionKh: 'កាហ្វេទឹកកកខ្មែរប្រពៃណីជាមួយទឹកដោះកោ',
-      price: '2.50',
       preparationTimeMinutes: 5,
     },
     {
@@ -141,7 +133,6 @@ const sampleData = {
       nameKh: 'ទឹកអំពៅ',
       description: 'Fresh sugar cane juice with ice',
       descriptionKh: 'ទឹកអំពៅស្រស់ជាមួយទឹកកក',
-      price: '2.00',
       preparationTimeMinutes: 3,
     },
 
@@ -151,7 +142,6 @@ const sampleData = {
       nameKh: 'ត្រីសាលម៉ុនអាំង',
       description: 'Grilled salmon with herbs and lemon butter sauce',
       descriptionKh: 'ត្រីសាលម៉ុនអាំងជាមួយស្លឹកជីរនិងទឹកជ្រលក់ប៊ឺ',
-      price: '18.00',
       preparationTimeMinutes: 20,
     },
     {
@@ -159,7 +149,6 @@ const sampleData = {
       nameKh: 'ប៊ឺហ្គ័រមាន់',
       description: 'Grilled chicken burger with fries',
       descriptionKh: 'ប៊ឺហ្គ័រមាន់អាំងជាមួយដំឡូងបំពង',
-      price: '8.50',
       preparationTimeMinutes: 15,
     },
 
@@ -169,7 +158,6 @@ const sampleData = {
       nameKh: 'ផេតថៃ',
       description: 'Thai-style stir-fried noodles with shrimp',
       descriptionKh: 'មីឆាបែបថៃជាមួយបង្គា',
-      price: '11.00',
       preparationTimeMinutes: 18,
     },
     {
@@ -177,9 +165,53 @@ const sampleData = {
       nameKh: 'ស៊ុបភូ',
       description: 'Vietnamese beef noodle soup with herbs',
       descriptionKh: 'ស៊ុបមីសាច់គោវៀតណាមជាមួយស្លឹកជីរ',
-      price: '9.50',
       preparationTimeMinutes: 22,
     }
+  ],
+
+  // Variant templates - will be applied to each menu item
+  variantTemplates: [
+    {
+      size: 'small',
+      name: 'Small',
+      nameKh: 'តូច',
+      priceMultiplier: 0.8,
+      isDefault: false,
+      sortOrder: 1,
+    },
+    {
+      size: 'regular',
+      name: 'Regular',
+      nameKh: 'ធម្មតា',
+      priceMultiplier: 1.0,
+      isDefault: true,
+      sortOrder: 2,
+    },
+    {
+      size: 'large',
+      name: 'Large',
+      nameKh: 'ធំ',
+      priceMultiplier: 1.3,
+      isDefault: false,
+      sortOrder: 3,
+    }
+  ],
+
+  // Base prices for menu items (will be used with multipliers for variants)
+  basePrices: [
+    4.50, // Fresh Spring Rolls
+    6.00, // Cambodian Fish Cakes
+    12.00, // Amok Trey
+    15.00, // Beef Lok Lak
+    13.50, // Khmer Red Curry
+    3.50, // Num Ansom
+    4.00, // Baked Custard
+    2.50, // Iced Coffee
+    2.00, // Sugar Cane Juice
+    18.00, // Grilled Salmon
+    8.50, // Chicken Burger
+    11.00, // Pad Thai
+    9.50, // Vietnamese Pho
   ],
 
   staff: [
@@ -367,6 +399,39 @@ export const seedMenuItems = async (restaurants: any[], categories: any[]) => {
   return insertedItems;
 };
 
+export const seedMenuItemVariants = async (menuItems: any[]) => {
+  const db = getDatabase();
+  
+  console.log('🔄 Seeding menu item variants...');
+  
+  const variants: any[] = [];
+  
+  // Create variants for each menu item
+  menuItems.forEach((menuItem, itemIndex) => {
+    const basePrice = sampleData.basePrices[itemIndex] || 10.00; // Default price if not found
+    
+    sampleData.variantTemplates.forEach((template) => {
+      variants.push({
+        menuItemId: menuItem.id,
+        size: template.size,
+        name: template.name,
+        nameKh: template.nameKh,
+        price: (basePrice * template.priceMultiplier).toFixed(2),
+        isDefault: template.isDefault,
+        sortOrder: template.sortOrder,
+      });
+    });
+  });
+  
+  const insertedVariants = await db
+    .insert(schema.menuItemVariants)
+    .values(variants)
+    .returning();
+    
+  console.log(`✅ Inserted ${insertedVariants.length} menu item variants`);
+  return insertedVariants;
+};
+
 export const seedKitchenLoads = async (restaurants: any[]) => {
   const db = getDatabase();
   
@@ -390,7 +455,7 @@ export const seedKitchenLoads = async (restaurants: any[]) => {
 export const seedSampleOrders = async (
   restaurants: any[], 
   tables: any[], 
-  menuItems: any[]
+  variants: any[]
 ) => {
   const db = getDatabase();
   
@@ -404,9 +469,13 @@ export const seedSampleOrders = async (
     const customer = sampleData.sampleCustomers[i % sampleData.sampleCustomers.length];
     const restaurant = restaurants[i % restaurants.length];
     const table = tables.find(t => t.restaurantId === restaurant.id);
-    const restaurantMenuItems = menuItems.filter(item => item.restaurantId === restaurant.id);
+    const restaurantVariants = variants.filter(v => {
+      // Find variants that belong to this restaurant's menu items
+      const menuItem = restaurant.menuItems?.find((item: any) => item.id === v.menuItemId);
+      return menuItem !== undefined;
+    });
     
-    if (!table || restaurantMenuItems.length === 0) continue;
+    if (!table || restaurantVariants.length === 0) continue;
     
     const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Date.now()).slice(-6)}`;
     const status = schema.orderStatusEnum.enumValues.slice(0, 4).at(i % 4);
@@ -431,28 +500,54 @@ export const seedSampleOrders = async (
     .values(orders)
     .returning();
   
-  // Create order items for each order
+  // Create order items for each order using variants
   for (let i = 0; i < insertedOrders.length; i++) {
     const order = insertedOrders[i]!;
-    const restaurantMenuItems = menuItems.filter(item => item.restaurantId === order.restaurantId);
+    const restaurant = restaurants.find(r => r.id === order.restaurantId);
+    
+    // Get all menu items for this restaurant from our seeded data
+    const restaurantItems = sampleData.menuItems
+      .map((item, index) => {
+        let restaurantIndex;
+        if (index < 2) restaurantIndex = 0; // Appetizers
+        else if (index < 5) restaurantIndex = 0; // Main Dishes
+        else if (index < 7) restaurantIndex = 0; // Desserts
+        else if (index < 9) restaurantIndex = index === 7 ? 0 : 1; // Beverages
+        else if (index < 11) restaurantIndex = 1; // Western Food
+        else restaurantIndex = 1; // Asian Fusion
+        
+        return restaurantIndex === restaurants.indexOf(restaurant) ? { ...item, index } : null;
+      })
+      .filter(Boolean);
     
     // Add 1-3 items per order
     const numItems = Math.floor(Math.random() * 3) + 1;
     let totalAmount = 0;
     
-    for (let j = 0; j < numItems; j++) {
-      const menuItem = restaurantMenuItems[j % restaurantMenuItems.length];
+    for (let j = 0; j < numItems && j < restaurantItems.length; j++) {
+      const itemData = restaurantItems[j];
+      if (!itemData) continue;
+      
+      // Find variants for this menu item
+      const menuItemVariants = variants.filter(v => {
+        // Match by restaurant and item position since we don't have exact IDs
+        return v.menuItemId && v.isDefault; // Just use default variants for simplicity
+      });
+      
+      if (menuItemVariants.length === 0) continue;
+      
+      const variant = menuItemVariants[j % menuItemVariants.length];
       const quantity = Math.floor(Math.random() * 3) + 1;
-      const unitPrice = parseFloat(menuItem.price);
+      const unitPrice = parseFloat(variant.price);
       const subtotal = unitPrice * quantity;
       totalAmount += subtotal;
       
       orderItems.push({
         orderId: order.id,
-        menuItemId: menuItem.id,
+        menuItemId: variant.menuItemId,
+        variantId: variant.id,
         quantity,
-        size: schema.itemSizeEnum.enumValues[Math.floor(Math.random() * 3)],
-        spiceLevel: schema.spiceLevelEnum.enumValues[Math.floor(Math.random() * 5)],
+        spiceLevel: schema.spiceLevelEnum.enumValues[Math.floor(Math.random() * 4)],
         notes: j === 0 && i === 0 ? 'Extra crispy please' : undefined,
         unitPrice: unitPrice.toString(),
         subtotal: subtotal.toString(),
@@ -496,8 +591,9 @@ export const seedDatabase = async () => {
     const staff = await seedStaff(restaurants);
     const categories = await seedMenuCategories(restaurants);
     const menuItems = await seedMenuItems(restaurants, categories);
+    const variants = await seedMenuItemVariants(menuItems);
     const kitchenLoads = await seedKitchenLoads(restaurants);
-    const orders = await seedSampleOrders(restaurants, tables, menuItems);
+    const orders = await seedSampleOrders(restaurants, tables, variants);
     
     console.log('🎉 Database seeding completed successfully!');
     console.log('\n📊 Summary:');
@@ -506,6 +602,7 @@ export const seedDatabase = async () => {
     console.log(`- ${staff.length} staff members`);
     console.log(`- ${categories.length} menu categories`);
     console.log(`- ${menuItems.length} menu items`);
+    console.log(`- ${variants.length} menu item variants`);
     console.log(`- ${kitchenLoads.length} kitchen load records`);
     console.log(`- ${orders.length} sample orders`);
     
@@ -526,6 +623,7 @@ export const clearDatabase = async () => {
     await db.delete(schema.orderItems);
     await db.delete(schema.orders);
     await db.delete(schema.kitchenLoads);
+    await db.delete(schema.menuItemVariants);
     await db.delete(schema.menuItems);
     await db.delete(schema.menuCategories);
     await db.delete(schema.staff);
@@ -552,6 +650,7 @@ export const seedFunctions = {
   seedStaff,
   seedMenuCategories,
   seedMenuItems,
+  seedMenuItemVariants,
   seedKitchenLoads,
   seedSampleOrders,
 };

@@ -75,7 +75,6 @@ export const CreateMenuItemSchema = z.object({
   nameKh: z.string().max(100, 'Khmer name too long').optional(),
   description: z.string().max(500, 'Description too long').optional(),
   descriptionKh: z.string().max(500, 'Khmer description too long').optional(),
-  price: z.number().min(0.01, 'Price must be greater than 0').max(BUSINESS_RULES.MAX_ORDER_VALUE, 'Price too high'),
   imageUrl: z.string().url('Invalid image URL').optional(),
   preparationTimeMinutes: z
     .number()
@@ -88,11 +87,24 @@ export const CreateMenuItemSchema = z.object({
 
 export const UpdateMenuItemSchema = CreateMenuItemSchema.partial().omit({ restaurantId: true });
 
-// Order item schemas
+// Menu item variant schemas
+export const CreateMenuItemVariantSchema = z.object({
+  menuItemId: IdSchema,
+  size: z.nativeEnum(ItemSize),
+  name: z.string().max(50, 'Variant name too long').optional(),
+  nameKh: z.string().max(50, 'Khmer variant name too long').optional(),
+  price: z.number().min(0.01, 'Price must be greater than 0').max(BUSINESS_RULES.MAX_ORDER_VALUE, 'Price too high'),
+  isDefault: z.boolean().default(false),
+  sortOrder: z.number().int().min(0, 'Sort order must be non-negative').default(0),
+});
+
+export const UpdateMenuItemVariantSchema = CreateMenuItemVariantSchema.partial().omit({ menuItemId: true });
+
+// Order item schemas (updated for variants)
 export const OrderItemSchema = z.object({
   menuItemId: IdSchema,
+  variantId: IdSchema, // Now required - must specify which variant
   quantity: z.number().int().min(1, 'Quantity must be at least 1').max(50, 'Quantity too high'),
-  size: z.nativeEnum(ItemSize).optional(),
   spiceLevel: z.nativeEnum(SpiceLevel).optional(),
   notes: z.string().max(200, 'Notes too long').optional(),
 });
@@ -141,6 +153,7 @@ export const MenuSearchSchema = z.object({
   isAvailable: z.boolean().optional(),
   minPrice: z.number().min(0, 'Minimum price cannot be negative').optional(),
   maxPrice: z.number().min(0, 'Maximum price cannot be negative').optional(),
+  size: z.nativeEnum(ItemSize).optional(), // Filter by size
   sortBy: z.enum(['name', 'price', 'preparationTime', 'sortOrder']).default('sortOrder'),
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
 }).merge(PaginationSchema);
@@ -300,6 +313,8 @@ export const schemas = {
   UpdateMenuCategory: UpdateMenuCategorySchema,
   CreateMenuItem: CreateMenuItemSchema,
   UpdateMenuItem: UpdateMenuItemSchema,
+  CreateMenuItemVariant: CreateMenuItemVariantSchema,
+  UpdateMenuItemVariant: UpdateMenuItemVariantSchema,
   
   // Order
   OrderItem: OrderItemSchema,
