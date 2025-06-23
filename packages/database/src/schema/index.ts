@@ -26,15 +26,14 @@ export const orderStatusEnum = pgEnum('order_status', [
 
 export const spiceLevelEnum = pgEnum('spice_level', [
   'none',
-  'mild', 
-  'medium',
+  'regular',
   'spicy',
   'very_spicy'
 ]);
 
 export const itemSizeEnum = pgEnum('item_size', [
   'small',
-  'medium',
+  'regular',
   'large'
 ]);
 
@@ -44,8 +43,6 @@ export const staffRoleEnum = pgEnum('staff_role', [
   'kitchen',
   'service'
 ]);
-
-export const currencyEnum = pgEnum('currency', ['USD', 'KHR']);
 
 // Restaurants table
 export const restaurants = pgTable('restaurants', {
@@ -125,8 +122,6 @@ export const menuItems = pgTable('menu_items', {
   nameKh: varchar('name_kh', { length: 100 }),
   description: text('description'),
   descriptionKh: text('description_kh'),
-  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
-  currency: currencyEnum('currency').notNull().default('USD'),
   imageUrl: text('image_url'),
   preparationTimeMinutes: integer('preparation_time_minutes').notNull().default(15),
   isAvailable: boolean('is_available').notNull().default(true),
@@ -138,9 +133,31 @@ export const menuItems = pgTable('menu_items', {
   categoryIdx: index('menu_items_category_idx').on(table.categoryId),
   restaurantIdx: index('menu_items_restaurant_idx').on(table.restaurantId),
   availableIdx: index('menu_items_available_idx').on(table.isAvailable),
-  priceIdx: index('menu_items_price_idx').on(table.price),
   nameIdx: index('menu_items_name_idx').on(table.name),
   sortOrderIdx: index('menu_items_sort_order_idx').on(table.categoryId, table.sortOrder),
+}));
+
+// Menu item variants - stores size-based pricing and availability
+export const menuItemVariants = pgTable('menu_item_variants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  menuItemId: uuid('menu_item_id').notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  size: itemSizeEnum('size').notNull(),
+  name: varchar('name', { length: 50 }), // Optional custom name for variant (e.g., "Regular", "Family Size")
+  nameKh: varchar('name_kh', { length: 50 }),
+  price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+  isAvailable: boolean('is_available').notNull().default(true),
+  isDefault: boolean('is_default').notNull().default(false), // Mark default size
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  menuItemSizeUnique: unique('menu_item_size_unique').on(table.menuItemId, table.size),
+  menuItemIdx: index('menu_item_variants_menu_item_idx').on(table.menuItemId),
+  sizeIdx: index('menu_item_variants_size_idx').on(table.size),
+  priceIdx: index('menu_item_variants_price_idx').on(table.price),
+  availableIdx: index('menu_item_variants_available_idx').on(table.isAvailable),
+  defaultIdx: index('menu_item_variants_default_idx').on(table.isDefault),
+  sortOrderIdx: index('menu_item_variants_sort_order_idx').on(table.menuItemId, table.sortOrder),
 }));
 
 // Orders - now directly references telegramId instead of customer
@@ -153,7 +170,6 @@ export const orders = pgTable('orders', {
   orderNumber: varchar('order_number', { length: 20 }).notNull().unique(),
   status: orderStatusEnum('status').notNull().default('pending'),
   totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
-  currency: currencyEnum('currency').notNull().default('USD'),
   estimatedPreparationMinutes: integer('estimated_preparation_minutes').notNull(),
   actualPreparationMinutes: integer('actual_preparation_minutes'),
   notes: text('notes'),
@@ -172,13 +188,13 @@ export const orders = pgTable('orders', {
   statusRestaurantIdx: index('orders_status_restaurant_idx').on(table.status, table.restaurantId),
 }));
 
-// Order items
+// Order items - now references menu item variants
 export const orderItems = pgTable('order_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
   menuItemId: uuid('menu_item_id').notNull().references(() => menuItems.id),
+  variantId: uuid('variant_id').notNull().references(() => menuItemVariants.id), // Reference to specific variant
   quantity: integer('quantity').notNull().default(1),
-  size: itemSizeEnum('size').default('medium'),
   spiceLevel: spiceLevelEnum('spice_level').default('none'),
   notes: text('notes'),
   unitPrice: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
@@ -245,6 +261,15 @@ export const menuItemsRelations = relations(menuItems, ({ one, many }) => ({
     fields: [menuItems.restaurantId],
     references: [restaurants.id],
   }),
+  variants: many(menuItemVariants),
+  orderItems: many(orderItems),
+}));
+
+export const menuItemVariantsRelations = relations(menuItemVariants, ({ one, many }) => ({
+  menuItem: one(menuItems, {
+    fields: [menuItemVariants.menuItemId],
+    references: [menuItems.id],
+  }),
   orderItems: many(orderItems),
 }));
 
@@ -269,6 +294,10 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
     fields: [orderItems.menuItemId],
     references: [menuItems.id],
   }),
+  variant: one(menuItemVariants, {
+    fields: [orderItems.variantId],
+    references: [menuItemVariants.id],
+  }),
 }));
 
 export const kitchenLoadsRelations = relations(kitchenLoads, ({ one }) => ({
@@ -285,6 +314,7 @@ export const schema = {
   staff,
   menuCategories,
   menuItems,
+  menuItemVariants,
   orders,
   orderItems,
   kitchenLoads,
@@ -294,6 +324,7 @@ export const schema = {
   staffRelations,
   menuCategoriesRelations,
   menuItemsRelations,
+  menuItemVariantsRelations,
   ordersRelations,
   orderItemsRelations,
   kitchenLoadsRelations,
