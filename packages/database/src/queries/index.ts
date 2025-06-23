@@ -277,8 +277,12 @@ export const menuQueries = {
       conditions.push(lte(schema.menuItemVariants.price, maxPrice.toString()));
     }
 
+    // Calculate pagination values
+    const limit = pagination?.limit || 50;
+    const offset = pagination ? (pagination.page - 1) * pagination.limit : 0;
+
     // Build the complete query with all conditions
-    let query = db
+    let results = await db
       .select({
         item: schema.menuItems,
         category: schema.menuCategories,
@@ -288,14 +292,9 @@ export const menuQueries = {
       .innerJoin(schema.menuCategories, eq(schema.menuItems.categoryId, schema.menuCategories.id))
       .innerJoin(schema.menuItemVariants, eq(schema.menuItems.id, schema.menuItemVariants.menuItemId))
       .where(and(...conditions))
-      .orderBy(asc(schema.menuItems.sortOrder), asc(schema.menuItemVariants.sortOrder));
-    
-    if (pagination) {
-      const offset = (pagination.page - 1) * pagination.limit;
-      query = query.limit(pagination.limit).offset(offset);
-    }
-    
-    const results = await query;
+      .orderBy(asc(schema.menuItems.sortOrder), asc(schema.menuItemVariants.sortOrder))
+      .limit(limit)
+      .offset(offset);
 
     // Group variants by menu item
     const itemsMap = new Map();
