@@ -13,7 +13,6 @@ export * from './validators';
 // Re-export commonly used items for convenience
 export type {
   ID,
-  Customer,
   Restaurant,
   Table,
   MenuCategory,

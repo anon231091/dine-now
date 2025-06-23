@@ -10,6 +10,7 @@ import {
   pgEnum,
   index,
   unique,
+  bigint,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -25,14 +26,15 @@ export const orderStatusEnum = pgEnum('order_status', [
 
 export const spiceLevelEnum = pgEnum('spice_level', [
   'none',
-  'regular', 
+  'mild', 
+  'medium',
   'spicy',
   'very_spicy'
 ]);
 
 export const itemSizeEnum = pgEnum('item_size', [
   'small',
-  'regular',
+  'medium',
   'large'
 ]);
 
@@ -77,26 +79,11 @@ export const tables = pgTable('tables', {
   restaurantIdx: index('tables_restaurant_idx').on(table.restaurantId),
 }));
 
-// Customers
-export const customers = pgTable('customers', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  telegramId: varchar('telegram_id', { length: 20 }).notNull().unique(),
-  firstName: varchar('first_name', { length: 50 }).notNull(),
-  lastName: varchar('last_name', { length: 50 }),
-  username: varchar('username', { length: 50 }),
-  phoneNumber: varchar('phone_number', { length: 20 }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => ({
-  telegramIdx: index('customers_telegram_idx').on(table.telegramId),
-  phoneIdx: index('customers_phone_idx').on(table.phoneNumber),
-}));
-
 // Staff
 export const staff = pgTable('staff', {
   id: uuid('id').primaryKey().defaultRandom(),
   restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
-  telegramId: varchar('telegram_id', { length: 20 }).notNull(),
+  telegramId: bigint('telegram_id', { mode: 'bigint' }).notNull(),
   firstName: varchar('first_name', { length: 50 }).notNull(),
   lastName: varchar('last_name', { length: 50 }),
   username: varchar('username', { length: 50 }),
@@ -139,7 +126,7 @@ export const menuItems = pgTable('menu_items', {
   description: text('description'),
   descriptionKh: text('description_kh'),
   price: decimal('price', { precision: 10, scale: 2 }).notNull(),
-  currency: currencyEnum('currency').notNull().default('KHR'),
+  currency: currencyEnum('currency').notNull().default('USD'),
   imageUrl: text('image_url'),
   preparationTimeMinutes: integer('preparation_time_minutes').notNull().default(15),
   isAvailable: boolean('is_available').notNull().default(true),
@@ -156,16 +143,17 @@ export const menuItems = pgTable('menu_items', {
   sortOrderIdx: index('menu_items_sort_order_idx').on(table.categoryId, table.sortOrder),
 }));
 
-// Orders
+// Orders - now directly references telegramId instead of customer
 export const orders = pgTable('orders', {
   id: uuid('id').primaryKey().defaultRandom(),
-  customerId: uuid('customer_id').notNull().references(() => customers.id),
+  customerTelegramId: bigint('customer_telegram_id', { mode: 'bigint' }).notNull(), // Direct telegram ID reference
+  customerName: varchar('customer_name', { length: 100 }).notNull(), // Store for display purposes
   restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
   tableId: uuid('table_id').notNull().references(() => tables.id),
   orderNumber: varchar('order_number', { length: 20 }).notNull().unique(),
   status: orderStatusEnum('status').notNull().default('pending'),
   totalAmount: decimal('total_amount', { precision: 10, scale: 2 }).notNull(),
-  currency: currencyEnum('currency').notNull().default('KHR'),
+  currency: currencyEnum('currency').notNull().default('USD'),
   estimatedPreparationMinutes: integer('estimated_preparation_minutes').notNull(),
   actualPreparationMinutes: integer('actual_preparation_minutes'),
   notes: text('notes'),
@@ -175,7 +163,7 @@ export const orders = pgTable('orders', {
   readyAt: timestamp('ready_at'),
   servedAt: timestamp('served_at'),
 }, (table) => ({
-  customerIdx: index('orders_customer_idx').on(table.customerId),
+  customerTelegramIdx: index('orders_customer_telegram_idx').on(table.customerTelegramId),
   restaurantIdx: index('orders_restaurant_idx').on(table.restaurantId),
   tableIdx: index('orders_table_idx').on(table.tableId),
   statusIdx: index('orders_status_idx').on(table.status),
@@ -190,8 +178,8 @@ export const orderItems = pgTable('order_items', {
   orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
   menuItemId: uuid('menu_item_id').notNull().references(() => menuItems.id),
   quantity: integer('quantity').notNull().default(1),
-  size: itemSizeEnum('size').default('regular'),
-  spiceLevel: spiceLevelEnum('spice_level').default('regular'),
+  size: itemSizeEnum('size').default('medium'),
+  spiceLevel: spiceLevelEnum('spice_level').default('none'),
   notes: text('notes'),
   unitPrice: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
   subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
@@ -233,10 +221,6 @@ export const tablesRelations = relations(tables, ({ one, many }) => ({
   orders: many(orders),
 }));
 
-export const customersRelations = relations(customers, ({ many }) => ({
-  orders: many(orders),
-}));
-
 export const staffRelations = relations(staff, ({ one }) => ({
   restaurant: one(restaurants, {
     fields: [staff.restaurantId],
@@ -265,10 +249,6 @@ export const menuItemsRelations = relations(menuItems, ({ one, many }) => ({
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
-  customer: one(customers, {
-    fields: [orders.customerId],
-    references: [customers.id],
-  }),
   restaurant: one(restaurants, {
     fields: [orders.restaurantId],
     references: [restaurants.id],
@@ -302,7 +282,6 @@ export const kitchenLoadsRelations = relations(kitchenLoads, ({ one }) => ({
 export const schema = {
   restaurants,
   tables,
-  customers,
   staff,
   menuCategories,
   menuItems,
@@ -312,7 +291,6 @@ export const schema = {
   // Relations
   restaurantsRelations,
   tablesRelations,
-  customersRelations,
   staffRelations,
   menuCategoriesRelations,
   menuItemsRelations,

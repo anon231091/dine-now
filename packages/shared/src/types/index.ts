@@ -2,18 +2,6 @@
 export type ID = string;
 export type Timestamp = Date;
 
-// User types
-export interface Customer {
-  id: ID;
-  telegramId: number;
-  firstName: string;
-  lastName?: string;
-  username?: string;
-  phoneNumber?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-
 // Restaurant structure
 export interface Restaurant {
   id: ID;
@@ -61,6 +49,7 @@ export interface MenuItem {
   description?: string;
   descriptionKh?: string;
   price: number;
+  currency: Currency;
   imageUrl?: string;
   preparationTimeMinutes: number;
   isAvailable: boolean;
@@ -116,18 +105,18 @@ export interface OrderItem {
 
 export interface Order {
   id: ID;
-  customerId: ID;
+  customerTelegramId: bigint; // Direct reference to Telegram user ID
+  customerName: string; // Display name for orders
   restaurantId: ID;
   tableId: ID;
   orderNumber: string;
   status: OrderStatus;
   totalAmount: number;
-  currency: Currency,
+  currency: Currency;
   estimatedPreparationMinutes: number;
   actualPreparationMinutes?: number;
   notes?: string;
   orderItems: OrderItem[];
-  customer?: Customer; // Populated when needed
   table?: Table; // Populated when needed
   restaurant?: Restaurant;
   createdAt: Timestamp;
@@ -150,7 +139,7 @@ export interface KitchenLoad {
 export interface Staff {
   id: ID;
   restaurantId: ID;
-  telegramId: number;
+  telegramId: bigint;
   firstName: string;
   lastName?: string;
   username?: string;
@@ -165,6 +154,14 @@ export enum StaffRole {
   MANAGER = 'manager',
   KITCHEN = 'kitchen',
   SERVICE = 'service'
+}
+
+// Telegram user interface (for authentication)
+export interface TelegramUser {
+  id: bigint;
+  firstName: string;
+  lastName?: string;
+  username?: string;
 }
 
 // API Response types
@@ -192,7 +189,6 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 // DTOs (Data Transfer Objects)
 export interface CreateOrderDto {
   tableId: ID;
-  customerId: ID;
   orderItems: {
     menuItemId: ID;
     quantity: number;
@@ -214,8 +210,8 @@ export interface MenuItemWithCategory extends MenuItem {
 }
 
 export interface OrderWithDetails extends Order {
-  customer: Customer;
   table: Table;
+  restaurant: Restaurant;
   orderItems: (OrderItem & { menuItem: MenuItem })[];
 }
 
@@ -238,6 +234,38 @@ export interface OrderStatusUpdateEvent extends WebSocketEvent {
 export interface NewOrderEvent extends WebSocketEvent {
   type: 'new_order';
   data: OrderWithDetails;
+}
+
+// Authentication types
+export interface CustomerAuthData {
+  telegramId: bigint;
+  firstName: string;
+  lastName?: string;
+  username?: string;
+  type: 'customer';
+}
+
+export interface StaffAuthData {
+  id: ID;
+  telegramId: bigint;
+  firstName: string;
+  lastName?: string;
+  username?: string;
+  role: StaffRole;
+  restaurantId: ID;
+  type: 'staff';
+  restaurant: {
+    id: ID;
+    name: string;
+  };
+}
+
+export type AuthData = CustomerAuthData | StaffAuthData;
+
+export interface AuthResponse {
+  token: string;
+  user: AuthData;
+  expiresIn: string;
 }
 
 // Error types

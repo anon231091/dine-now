@@ -47,7 +47,7 @@ router.get(
 
     logInfo('Fetching staff profile', { telegramId });
 
-    const staffData = await queries.staff.getStaffByTelegramId(telegramId);
+    const staffData = await queries.staff.getStaffByTelegramId(BigInt(telegramId));
 
     if (!staffData) {
       return res.status(HTTP_STATUS.NOT_FOUND).json({

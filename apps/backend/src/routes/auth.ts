@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
+import { validate, parse } from '@telegram-apps/init-data-node';
 import { queries } from '@dine-now/database';
 import { schemas, HTTP_STATUS } from '@dine-now/shared';
 import { 
@@ -15,109 +16,7 @@ const router = Router();
 
 /**
  * @swagger
- * /api/auth/telegram:
- *   post:
- *     summary: Authenticate customer via Telegram Mini App init data
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               initData:
- *                 type: string
- *                 description: Raw init data string from Telegram Mini App
- *             required:
- *               - initData
- *     responses:
- *       200:
- *         description: Authentication successful
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/AuthResponse'
- *       400:
- *         description: Invalid init data
- *       401:
- *         description: Authentication failed
- */
-router.post(
-  '/telegram',
-  validateBody(z.object({
-    initData: z.string().min(1, 'Init data is required'),
-  })),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { initData } = req.body;
-
-    logInfo('Telegram authentication attempt via init data');
-
-    // Validate the init data
-    const validation = validateTelegramInitData(initData);
-    
-    if (!validation.isValid || !validation.data?.user) {
-      logWarning('Invalid Telegram init data');
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: 'Invalid authentication data',
-      });
-    }
-
-    const { user: telegramUser } = validation.data;
-
-    // Get or create customer
-    const customer = await queries.customer.getOrCreateCustomer({
-      telegramId: telegramUser.id.toString(),
-      firstName: telegramUser.first_name,
-      lastName: telegramUser.last_name,
-      username: telegramUser.username,
-    });
-
-    if (!customer) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: 'Failed to create or retrieve customer',
-      });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: customer.id,
-        telegramId: customer.telegramId,
-        type: 'customer'
-      },
-      config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn as any }
-    );
-
-    logInfo('Customer authenticated successfully', { 
-      customerId: customer.id,
-      telegramId: customer.telegramId 
-    });
-
-    return res.status(HTTP_STATUS.OK).json({
-      success: true,
-      data: {
-        token,
-        user: {
-          id: customer.id,
-          telegramId: customer.telegramId,
-          firstName: customer.firstName,
-          lastName: customer.lastName,
-          username: customer.username,
-          type: 'customer',
-        },
-        expiresIn: config.jwtExpiresIn,
-      },
-    });
-  })
-);
-
-/**
- * @swagger
- * /api/auth/staff:
+ * /api/auth/:
  *   post:
  *     summary: Authenticate staff member via Telegram init data
  *     tags: [Authentication]
@@ -144,7 +43,7 @@ router.post(
  *         description: Staff not found or unauthorized
  */
 router.post(
-  '/staff',
+  '/',
   validateBody(z.object({
     initData: z.string().min(1, 'Init data is required'),
     restaurantId: schemas.Id,
@@ -154,90 +53,91 @@ router.post(
 
     logInfo('Staff authentication attempt via init data', { restaurantId });
 
-    // Validate the init data
-    const validation = validateTelegramInitData(initData);
-    
-    if (!validation.isValid || !validation.data?.user) {
-      logWarning('Invalid Telegram init data for staff');
+    try {
+      // Validate the init data
+      validate(initData, config.telegramBotToken, {
+        expiresIn: 3600, // 1 hour
+      });
+
+      // Parse the validated init data
+      const parsedData = parse(initData);
+      
+      if (!parsedData.user) {
+        logWarning('No user data in init data for staff');
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+          success: false,
+          error: 'Invalid user data',
+        });
+      }
+
+      const telegramUser = parsedData.user;
+      const telegramId = BigInt(telegramUser.id);
+
+      // Verify staff exists and is active
+      const staffData = await queries.staff.getStaffByTelegramId(telegramId, restaurantId);
+
+      if (!staffData || !staffData.staff.isActive) {
+        logWarning('Staff authentication failed - not found or inactive', { 
+          telegramId: telegramUser.id, 
+          restaurantId 
+        });
+        return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+          success: false,
+          error: 'Staff not found or inactive',
+        });
+      }
+
+      // Generate JWT token with staff role
+      const token = jwt.sign(
+        { 
+          staffId: staffData.staff.id,
+          telegramId: telegramUser.id,
+          restaurantId: staffData.staff.restaurantId,
+          role: staffData.staff.role,
+        },
+        config.jwtSecret,
+        { expiresIn: config.jwtExpiresIn as any }
+      );
+
+      logInfo('Staff authenticated successfully', { 
+        staffId: staffData.staff.id,
+        telegramId: telegramUser.id,
+        role: staffData.staff.role,
+        restaurantId: staffData.staff.restaurantId
+      });
+
+      return res.status(HTTP_STATUS.OK).json({
+        success: true,
+        data: {
+          token,
+          user: {
+            id: staffData.staff.id,
+            telegramId: telegramUser.id,
+            firstName: staffData.staff.firstName,
+            lastName: staffData.staff.lastName,
+            username: staffData.staff.username,
+            role: staffData.staff.role,
+            restaurantId: staffData.staff.restaurantId,
+          },
+          restaurant: {
+            id: staffData.restaurant.id,
+            name: staffData.restaurant.name,
+          },
+          expiresIn: config.jwtExpiresIn,
+        },
+      });
+
+    } catch (error) {
+      logWarning('Staff init data validation failed', { 
+        error: (error as Error).message,
+        restaurantId 
+      });
+      
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         success: false,
         error: 'Invalid authentication data',
       });
     }
-
-    const { user: telegramUser } = validation.data;
-    const telegramId = telegramUser.id.toString();
-
-    // Verify staff exists and is active
-    const staffData = await queries.staff.getStaffByTelegramId(telegramId, restaurantId);
-
-    if (!staffData || !staffData.staff.isActive) {
-      logWarning('Staff authentication failed - not found or inactive', { 
-        telegramId, 
-        restaurantId 
-      });
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: 'Staff not found or inactive',
-      });
-    }
-
-    // Update staff info if changed
-    if (staffData.staff.firstName !== telegramUser.first_name ||
-        staffData.staff.lastName !== telegramUser.last_name ||
-        staffData.staff.username !== telegramUser.username) {
-      // You might want to update staff info here
-      logInfo('Staff info changed in Telegram', {
-        staffId: staffData.staff.id,
-        changes: {
-          firstName: telegramUser.first_name,
-          lastName: telegramUser.last_name,
-          username: telegramUser.username,
-        }
-      });
-    }
-
-    // Generate JWT token with staff role
-    const token = jwt.sign(
-      { 
-        staffId: staffData.staff.id,
-        telegramId: staffData.staff.telegramId,
-        restaurantId: staffData.staff.restaurantId,
-        role: staffData.staff.role,
-        type: 'staff'
-      },
-      config.jwtSecret,
-      { expiresIn: config.jwtExpiresIn as any }
-    );
-
-    logInfo('Staff authenticated successfully', { 
-      staffId: staffData.staff.id,
-      telegramId: staffData.staff.telegramId,
-      role: staffData.staff.role,
-      restaurantId: staffData.staff.restaurantId
-    });
-
-    return res.status(HTTP_STATUS.OK).json({
-      success: true,
-      data: {
-        token,
-        user: {
-          id: staffData.staff.id,
-          telegramId: staffData.staff.telegramId,
-          firstName: staffData.staff.firstName,
-          lastName: staffData.staff.lastName,
-          username: staffData.staff.username,
-          role: staffData.staff.role,
-          restaurantId: staffData.staff.restaurantId,
-          type: 'staff',
-        },
-        restaurant: {
-          id: staffData.restaurant.id,
-          name: staffData.restaurant.name,
-        },
-        expiresIn: config.jwtExpiresIn,
-      },
-    });
   })
 );
 
@@ -272,37 +172,23 @@ router.get(
       const decoded = jwt.verify(token, config.jwtSecret) as any;
       
       let userData = null;
-      
-      if (decoded.type === 'customer' && decoded.userId) {
-        const customer = await queries.customer.getCustomerById(decoded.userId);
-        if (customer) {
-          userData = {
-            id: customer.id,
-            telegramId: customer.telegramId,
-            firstName: customer.firstName,
-            lastName: customer.lastName,
-            username: customer.username,
-            type: 'customer',
-          };
-        }
-      } else if (decoded.type === 'staff' && decoded.telegramId) {
-        const staffData = await queries.staff.getStaffByTelegramId(decoded.telegramId);
-        if (staffData && staffData.staff.isActive) {
-          userData = {
-            id: staffData.staff.id,
-            telegramId: staffData.staff.telegramId,
-            firstName: staffData.staff.firstName,
-            lastName: staffData.staff.lastName,
-            username: staffData.staff.username,
-            role: staffData.staff.role,
-            restaurantId: staffData.staff.restaurantId,
-            type: 'staff',
-            restaurant: {
-              id: staffData.restaurant.id,
-              name: staffData.restaurant.name,
-            },
-          };
-        }
+
+      // For staff, verify they still exist and are active
+      const staffData = await queries.staff.getStaffByTelegramId(BigInt(decoded.telegramId));
+      if (staffData && staffData.staff.isActive) {
+        userData = {
+          id: staffData.staff.id,
+          telegramId: decoded.telegramId,
+          firstName: staffData.staff.firstName,
+          lastName: staffData.staff.lastName,
+          username: staffData.staff.username,
+          role: staffData.staff.role,
+          restaurantId: staffData.staff.restaurantId,
+          restaurant: {
+            id: staffData.restaurant.id,
+            name: staffData.restaurant.name,
+          },
+        };
       }
 
       if (!userData) {
@@ -313,8 +199,7 @@ router.get(
       }
 
       logInfo('Token verified successfully', { 
-        userId: userData.id, 
-        type: userData.type 
+        telegramId: userData.telegramId, 
       });
 
       return res.status(HTTP_STATUS.OK).json({
@@ -332,83 +217,6 @@ router.get(
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({
         success: false,
         error: 'Invalid or expired token',
-      });
-    }
-  })
-);
-
-/**
- * @swagger
- * /api/auth/refresh:
- *   post:
- *     summary: Refresh JWT token
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Token refreshed successfully
- *       401:
- *         description: Invalid or expired token
- */
-router.post(
-  '/refresh',
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: 'No token provided',
-      });
-    }
-
-    try {
-      // Verify the current token (even if expired)
-      const decoded = jwt.verify(token, config.jwtSecret, { ignoreExpiration: true }) as any;
-      
-      // Check if token is too old to refresh (e.g., more than 30 days old)
-      const tokenAge = Date.now() / 1000 - decoded.iat;
-      const maxRefreshAge = 30 * 24 * 60 * 60; // 30 days
-      
-      if (tokenAge > maxRefreshAge) {
-        return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-          success: false,
-          error: 'Token too old to refresh',
-        });
-      }
-
-      // Generate new token with same payload
-      const newToken = jwt.sign(
-        { 
-          ...decoded,
-          iat: undefined, // Remove old issued at
-          exp: undefined, // Remove old expiry
-        },
-        config.jwtSecret,
-        { expiresIn: config.jwtExpiresIn as any }
-      );
-
-      logInfo('Token refreshed successfully', { 
-        userId: decoded.userId || decoded.staffId, 
-        type: decoded.type 
-      });
-
-      return res.status(HTTP_STATUS.OK).json({
-        success: true,
-        data: {
-          token: newToken,
-          expiresIn: config.jwtExpiresIn,
-        },
-      });
-
-    } catch (error) {
-      logWarning('Token refresh failed', { error: (error as Error).message });
-      
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: 'Invalid token',
       });
     }
   })

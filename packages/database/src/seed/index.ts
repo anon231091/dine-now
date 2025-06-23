@@ -182,48 +182,24 @@ const sampleData = {
     }
   ],
 
-  customers: [
-    {
-      telegramId: '123456789',
-      firstName: 'Sophea',
-      lastName: 'Chan',
-      username: 'sophea_chan',
-      phoneNumber: '+855 12 123 456',
-    },
-    {
-      telegramId: '987654321',
-      firstName: 'David',
-      lastName: 'Smith',
-      username: 'david_smith',
-      phoneNumber: '+855 78 987 654',
-    },
-    {
-      telegramId: '555666777',
-      firstName: 'Sreypov',
-      lastName: 'Kem',
-      username: 'sreypov_k',
-      phoneNumber: '+855 98 555 666',
-    }
-  ],
-
   staff: [
     // Khmer Kitchen staff
     {
-      telegramId: '111222333',
+      telegramId: BigInt('111222333'),
       firstName: 'Pich',
       lastName: 'Sokha',
       username: 'pich_kitchen',
       role: 'admin' as const,
     },
     {
-      telegramId: '444555666',
+      telegramId: BigInt('444555666'),
       firstName: 'Channa',
       lastName: 'Vuth',
       username: 'channa_chef',
       role: 'kitchen' as const,
     },
     {
-      telegramId: '777888999',
+      telegramId: BigInt('777888999'),
       firstName: 'Dara',
       lastName: 'Seng',
       username: 'dara_service',
@@ -231,18 +207,34 @@ const sampleData = {
     },
     // Mekong Cafe staff
     {
-      telegramId: '111333555',
+      telegramId: BigInt('111333555'),
       firstName: 'John',
       lastName: 'Wilson',
       username: 'john_manager',
       role: 'manager' as const,
     },
     {
-      telegramId: '222444666',
+      telegramId: BigInt('222444666'),
       firstName: 'Kimheng',
       lastName: 'Ouk',
       username: 'kimheng_kitchen',
       role: 'kitchen' as const,
+    }
+  ],
+
+  // Sample Telegram customer IDs for creating sample orders
+  sampleCustomers: [
+    {
+      telegramId: BigInt('123456789'),
+      name: 'Sophea Chan'
+    },
+    {
+      telegramId: BigInt('987654321'),
+      name: 'David Smith'
+    },
+    {
+      telegramId: BigInt('555666777'),
+      name: 'Sreypov Kem'
     }
   ]
 };
@@ -287,20 +279,6 @@ export const seedTables = async (restaurants: any[]) => {
     
   console.log(`✅ Inserted ${insertedTables.length} tables`);
   return insertedTables;
-};
-
-export const seedCustomers = async () => {
-  const db = getDatabase();
-  
-  console.log('👥 Seeding customers...');
-  
-  const insertedCustomers = await db
-    .insert(schema.customers)
-    .values(sampleData.customers)
-    .returning();
-    
-  console.log(`✅ Inserted ${insertedCustomers.length} customers`);
-  return insertedCustomers;
 };
 
 export const seedStaff = async (restaurants: any[]) => {
@@ -411,7 +389,6 @@ export const seedKitchenLoads = async (restaurants: any[]) => {
 
 export const seedSampleOrders = async (
   restaurants: any[], 
-  customers: any[], 
   tables: any[], 
   menuItems: any[]
 ) => {
@@ -422,9 +399,9 @@ export const seedSampleOrders = async (
   const orders = [];
   const orderItems = [];
   
-  // Create 5 sample orders
+  // Create 5 sample orders using sample customer telegram IDs
   for (let i = 0; i < 5; i++) {
-    const customer = customers[i % customers.length];
+    const customer = sampleData.sampleCustomers[i % sampleData.sampleCustomers.length];
     const restaurant = restaurants[i % restaurants.length];
     const table = tables.find(t => t.restaurantId === restaurant.id);
     const restaurantMenuItems = menuItems.filter(item => item.restaurantId === restaurant.id);
@@ -435,7 +412,8 @@ export const seedSampleOrders = async (
     const status = schema.orderStatusEnum.enumValues.slice(0, 4).at(i % 4);
     
     const order = {
-      customerId: customer.id,
+      customerTelegramId: customer!.telegramId,
+      customerName: customer!.name,
       restaurantId: restaurant.id,
       tableId: table.id,
       orderNumber,
@@ -515,18 +493,16 @@ export const seedDatabase = async () => {
     // Seed in order due to foreign key dependencies
     const restaurants = await seedRestaurants();
     const tables = await seedTables(restaurants);
-    const customers = await seedCustomers();
     const staff = await seedStaff(restaurants);
     const categories = await seedMenuCategories(restaurants);
     const menuItems = await seedMenuItems(restaurants, categories);
     const kitchenLoads = await seedKitchenLoads(restaurants);
-    const orders = await seedSampleOrders(restaurants, customers, tables, menuItems);
+    const orders = await seedSampleOrders(restaurants, tables, menuItems);
     
     console.log('🎉 Database seeding completed successfully!');
     console.log('\n📊 Summary:');
     console.log(`- ${restaurants.length} restaurants`);
     console.log(`- ${tables.length} tables`);
-    console.log(`- ${customers.length} customers`);
     console.log(`- ${staff.length} staff members`);
     console.log(`- ${categories.length} menu categories`);
     console.log(`- ${menuItems.length} menu items`);
@@ -553,7 +529,6 @@ export const clearDatabase = async () => {
     await db.delete(schema.menuItems);
     await db.delete(schema.menuCategories);
     await db.delete(schema.staff);
-    await db.delete(schema.customers);
     await db.delete(schema.tables);
     await db.delete(schema.restaurants);
     
@@ -574,7 +549,6 @@ export const reseedDatabase = async () => {
 export const seedFunctions = {
   seedRestaurants,
   seedTables,
-  seedCustomers,
   seedStaff,
   seedMenuCategories,
   seedMenuItems,

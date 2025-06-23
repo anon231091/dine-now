@@ -13,56 +13,14 @@ import {
   validateBody, 
   validateParams,
   validateQuery,
+  authenticateCustomer,
+  authenticateStaff,
   AuthenticatedRequest 
 } from '../middleware';
 import { logInfo, logError } from '../utils/logger';
 import { broadcastOrderUpdate } from '../websocket';
 
 const router = Router();
-
-/**
- * @swagger
- * components:
- *   schemas:
- *     Order:
- *       type: object
- *       properties:
- *         id:
- *           type: string
- *         orderNumber:
- *           type: string
- *         status:
- *           type: string
- *           enum: [pending, confirmed, preparing, ready, served, cancelled]
- *         totalAmount:
- *           type: number
- *         estimatedPreparationMinutes:
- *           type: integer
- *         notes:
- *           type: string
- *         createdAt:
- *           type: string
- *           format: date-time
- *     OrderItem:
- *       type: object
- *       properties:
- *         id:
- *           type: string
- *         quantity:
- *           type: integer
- *         size:
- *           type: string
- *           enum: [small, medium, large]
- *         spiceLevel:
- *           type: string
- *           enum: [none, mild, medium, spicy, very_spicy]
- *         notes:
- *           type: string
- *         unitPrice:
- *           type: number
- *         subtotal:
- *           type: number
- */
 
 /**
  * @swagger
@@ -77,27 +35,7 @@ const router = Router();
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               tableId:
- *                 type: string
- *               orderItems:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     menuItemId:
- *                       type: string
- *                     quantity:
- *                       type: integer
- *                     size:
- *                       type: string
- *                     spiceLevel:
- *                       type: string
- *                     notes:
- *                       type: string
- *               notes:
- *                 type: string
+ *             $ref: '#/components/schemas/CreateOrder'
  *     responses:
  *       201:
  *         description: Order created successfully
@@ -108,22 +46,30 @@ const router = Router();
  */
 router.post(
   '/',
-  validateBody(schemas.CreateOrder),
+  authenticateCustomer,
+  validateBody(schemas.CreateOrder.omit({ customerId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { tableId, orderItems, notes } = req.body;
-    const customerId = req.user!.id;
+    const customerTelegramId = BigInt(req.user!.telegramId);
+    const customerName = `${req.user!.firstName}${req.user!.lastName ? ' ' + req.user!.lastName : ''}`;
 
-    logInfo('Creating new order', { customerId, tableId, itemCount: orderItems.length });
+    logInfo('Creating new order', { 
+      customerTelegramId: req.user!.telegramId, 
+      tableId, 
+      itemCount: orderItems.length 
+    });
 
     // Get table information to get restaurant ID
     const tableData = await queries.table.getTableById(tableId);
     
     if (!tableData) {
-      logError(new Error('Table data not found'), { customerId, tableId, itemCount: orderItems.length });
-
+      logError(new Error('Table data not found'), { 
+        customerTelegramId: req.user!.telegramId, 
+        tableId 
+      });
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        error: 'Invalid tableId',
+        error: 'Invalid table ID',
       });
     }
 
@@ -176,7 +122,8 @@ router.post(
 
     // Create order
     const orderData = await queries.order.createOrder({
-      customerId,
+      customerTelegramId,
+      customerName,
       restaurantId,
       tableId,
       orderNumber,
@@ -195,9 +142,11 @@ router.post(
     }
 
     if (!orderData.order) {
-      logError(new Error('Failed to place order'), { customerId, tableId, itemCount: orderItems.length });
-
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+      logError(new Error('Failed to place order'), { 
+        customerTelegramId: req.user!.telegramId, 
+        tableId 
+      });
+      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
         success: false,
         error: 'Failed to place order',
       });
@@ -247,16 +196,17 @@ router.get(
   validateParams(schemas.Id.transform((id) => ({ orderId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { orderId } = req.params;
-    const customerId = req.user!.id;
+    const userTelegramId = BigInt(req.user!.telegramId);
+    const userType = req.user!.type;
 
     if (!orderId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        errror: 'invalid orderId',
+        error: 'Invalid order ID',
       });
     }
 
-    logInfo('Fetching order details', { orderId, customerId });
+    logInfo('Fetching order details', { orderId, userTelegramId: req.user!.telegramId, userType });
 
     const order = await queries.order.getOrderById(orderId);
 
@@ -267,8 +217,15 @@ router.get(
       });
     }
 
-    // Check if customer owns this order
-    if (order.order.customerId !== customerId) {
+    // Check if user has access to this order
+    if (userType === 'customer' && order.order.customerTelegramId !== userTelegramId) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Access denied',
+      });
+    }
+
+    if (userType === 'staff' && order.order.restaurantId !== req.user!.restaurantId) {
       return res.status(HTTP_STATUS.FORBIDDEN).json({
         success: false,
         error: 'Access denied',
@@ -307,14 +264,18 @@ router.get(
  */
 router.get(
   '/customer/history',
+  authenticateCustomer,
   validateQuery(schemas.Pagination),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const customerId = req.user!.id;
+    const customerTelegramId = BigInt(req.user!.telegramId);
     const pagination = req.query as any;
 
-    logInfo('Fetching customer order history', { customerId, pagination });
+    logInfo('Fetching customer order history', { 
+      customerTelegramId: req.user!.telegramId, 
+      pagination 
+    });
 
-    const orders = await queries.order.getOrdersByCustomer(customerId, pagination);
+    const orders = await queries.order.getOrdersByCustomerTelegramId(customerTelegramId, pagination);
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -359,6 +320,7 @@ router.get(
  */
 router.patch(
   '/:orderId/status',
+  authenticateStaff,
   validateParams(schemas.Id.transform((id) => ({ orderId: id }))),
   validateBody(schemas.UpdateOrderStatus.omit({ orderId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -368,7 +330,7 @@ router.patch(
     if (!orderId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        errror: 'invalid orderId',
+        error: 'Invalid order ID',
       });
     }
 
@@ -381,6 +343,14 @@ router.patch(
       return res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         error: 'Order not found',
+      });
+    }
+
+    // Check if staff has access to this restaurant
+    if (currentOrder.order.restaurantId !== req.user!.restaurantId) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Access denied to this restaurant',
       });
     }
 
@@ -419,7 +389,7 @@ router.patch(
     // Get updated complete order data
     const completeOrder = await queries.order.getOrderById(orderId);
 
-    // Broadcast status update
+    // Broadcast status update to restaurant
     broadcastOrderUpdate(currentOrder.order.restaurantId, 'order_status_update', {
       orderId,
       status,
@@ -427,7 +397,7 @@ router.patch(
     });
 
     // Broadcast to customer
-    broadcastOrderUpdate(`customer_${currentOrder.order.customerId}`, 'order_status_update', {
+    broadcastOrderUpdate(`customer_${currentOrder.order.customerTelegramId}`, 'order_status_update', {
       orderId,
       status,
       order: completeOrder,
@@ -462,7 +432,6 @@ router.patch(
  *           type: array
  *           items:
  *             type: string
- *         description: Filter by status (comma-separated)
  *       - in: query
  *         name: page
  *         schema:
@@ -479,6 +448,7 @@ router.patch(
  */
 router.get(
   '/restaurant/:restaurantId',
+  authenticateStaff,
   validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
   validateQuery(schemas.OrderSearch.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -488,7 +458,15 @@ router.get(
     if (!restaurantId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        error: "Undefined restaurantId"
+        error: "Invalid restaurant ID"
+      });
+    }
+
+    // Check if staff has access to this restaurant
+    if (req.user!.restaurantId !== restaurantId) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: 'Access denied to this restaurant',
       });
     }
 
@@ -535,7 +513,7 @@ router.get(
     if (!restaurantId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        error: "Undefined restaurantId"
+        error: "Invalid restaurant ID"
       });
     }
 
@@ -552,7 +530,6 @@ router.get(
       if (!ordersMap.has(orderId)) {
         ordersMap.set(orderId, {
           order: row.order,
-          customer: row.customer,
           table: row.table,
           items: [],
         });

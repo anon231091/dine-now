@@ -14,6 +14,8 @@ export interface AppConfig {
   rateLimitMax: number;
   telegramBotToken: string;
   telegramWebhookUrl: string;
+  jwtSecret: string;
+  jwtExpiresIn: string;
   logLevel: string;
   enableSwagger: boolean;
   enableMetrics: boolean;
@@ -29,6 +31,8 @@ export const config: AppConfig = {
   rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100'),
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
   telegramWebhookUrl: process.env.TELEGRAM_WEBHOOK_URL || '',
+  jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   logLevel: process.env.LOG_LEVEL || 'info',
   enableSwagger: process.env.ENABLE_SWAGGER === 'true' || process.env.NODE_ENV === 'development',
   enableMetrics: process.env.ENABLE_METRICS === 'true',
@@ -36,7 +40,7 @@ export const config: AppConfig = {
 
 // Validation
 export const validateConfig = () => {
-  const required = ['TELEGRAM_BOT_TOKEN'];
+  const required = ['TELEGRAM_BOT_TOKEN', 'JWT_SECRET'];
 
   const missing = required.filter(key => !process.env[key]);
   

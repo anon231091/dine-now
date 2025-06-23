@@ -103,59 +103,6 @@ export const tableQueries = {
   },
 };
 
-// Customer queries
-export const customerQueries = {
-  // Get or create customer by Telegram ID
-  getOrCreateCustomer: async (telegramData: {
-    telegramId: string;
-    firstName: string;
-    lastName?: string;
-    username?: string;
-  }) => {
-    const db = getDatabase();
-    
-    // Try to find existing customer
-    const existing = await db
-      .select()
-      .from(schema.customers)
-      .where(eq(schema.customers.telegramId, telegramData.telegramId))
-      .limit(1);
-    
-    if (existing[0]) {
-      // Update existing customer info
-      const updated = await db
-        .update(schema.customers)
-        .set({
-          firstName: telegramData.firstName,
-          lastName: telegramData.lastName,
-          username: telegramData.username,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.customers.telegramId, telegramData.telegramId))
-        .returning();
-      return updated[0];
-    }
-    
-    // Create new customer
-    const created = await db
-      .insert(schema.customers)
-      .values(telegramData)
-      .returning();
-    return created[0];
-  },
-
-  // Get customer by ID
-  getCustomerById: async (id: string) => {
-    const db = getDatabase();
-    const result = await db
-      .select()
-      .from(schema.customers)
-      .where(eq(schema.customers.id, id))
-      .limit(1);
-    return result[0] || null;
-  },
-};
-
 // Menu queries
 export const menuQueries = {
   // Get menu by restaurant with categories and items
@@ -269,7 +216,8 @@ export const menuQueries = {
 export const orderQueries = {
   // Create new order
   createOrder: async (orderData: {
-    customerId: string;
+    customerTelegramId: bigint;
+    customerName: string;
     restaurantId: string;
     tableId: string;
     orderNumber: string;
@@ -293,7 +241,8 @@ export const orderQueries = {
       const [order] = await tx
         .insert(schema.orders)
         .values({
-          customerId: orderData.customerId,
+          customerTelegramId: orderData.customerTelegramId,
+          customerName: orderData.customerName,
           restaurantId: orderData.restaurantId,
           tableId: orderData.tableId,
           orderNumber: orderData.orderNumber,
@@ -329,12 +278,10 @@ export const orderQueries = {
     const result = await db
       .select({
         order: schema.orders,
-        customer: schema.customers,
         restaurant: schema.restaurants,
         table: schema.tables,
       })
       .from(schema.orders)
-      .innerJoin(schema.customers, eq(schema.orders.customerId, schema.customers.id))
       .innerJoin(schema.restaurants, eq(schema.orders.restaurantId, schema.restaurants.id))
       .innerJoin(schema.tables, eq(schema.orders.tableId, schema.tables.id))
       .where(eq(schema.orders.id, id))
@@ -358,8 +305,8 @@ export const orderQueries = {
     };
   },
 
-  // Get orders by customer
-  getOrdersByCustomer: async (customerId: string, pagination?: PaginationParams) => {
+  // Get orders by customer telegram ID
+  getOrdersByCustomerTelegramId: async (telegramId: bigint, pagination?: PaginationParams) => {
     const db = getDatabase();
     
     const query = db
@@ -371,7 +318,7 @@ export const orderQueries = {
       .from(schema.orders)
       .innerJoin(schema.restaurants, eq(schema.orders.restaurantId, schema.restaurants.id))
       .innerJoin(schema.tables, eq(schema.orders.tableId, schema.tables.id))
-      .where(eq(schema.orders.customerId, customerId))
+      .where(eq(schema.orders.customerTelegramId, telegramId))
       .orderBy(desc(schema.orders.createdAt));
     
     if (pagination) {
@@ -399,11 +346,9 @@ export const orderQueries = {
     const query = db
       .select({
         order: schema.orders,
-        customer: schema.customers,
         table: schema.tables,
       })
       .from(schema.orders)
-      .innerJoin(schema.customers, eq(schema.orders.customerId, schema.customers.id))
       .innerJoin(schema.tables, eq(schema.orders.tableId, schema.tables.id))
       .where(and(...conditions))
       .orderBy(desc(schema.orders.createdAt));
@@ -470,13 +415,11 @@ export const orderQueries = {
     return db
       .select({
         order: schema.orders,
-        customer: schema.customers,
         table: schema.tables,
         orderItems: schema.orderItems,
         menuItem: schema.menuItems,
       })
       .from(schema.orders)
-      .innerJoin(schema.customers, eq(schema.orders.customerId, schema.customers.id))
       .innerJoin(schema.tables, eq(schema.orders.tableId, schema.tables.id))
       .innerJoin(schema.orderItems, eq(schema.orders.id, schema.orderItems.orderId))
       .innerJoin(schema.menuItems, eq(schema.orderItems.menuItemId, schema.menuItems.id))
@@ -491,7 +434,7 @@ export const orderQueries = {
 // Staff queries
 export const staffQueries = {
   // Get staff by telegram ID and restaurant
-  getStaffByTelegramId: async (telegramId: string, restaurantId?: string) => {
+  getStaffByTelegramId: async (telegramId: bigint, restaurantId?: string) => {
     const db = getDatabase();
     
     const conditions = [
@@ -703,7 +646,6 @@ export const analyticsQueries = {
 export const queries = {
   restaurant: restaurantQueries,
   table: tableQueries,
-  customer: customerQueries,
   menu: menuQueries,
   order: orderQueries,
   staff: staffQueries,

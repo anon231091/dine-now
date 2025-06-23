@@ -15,7 +15,17 @@ import { logError, logWarning } from '../utils/logger';
 
 // Extended Request interface
 export interface AuthenticatedRequest extends Request {
-  user?: any;
+  user?: {
+    type: 'customer' | 'staff';
+    telegramId: string;
+    firstName: string;
+    lastName: string | undefined;
+    username: string | undefined;
+    // Staff-specific properties
+    id?: string;
+    role?: string;
+    restaurantId?: string;
+  };
   restaurant?: {
     id: string;
     name: string;
@@ -114,45 +124,101 @@ export const createRateLimit = (windowMs?: number, max?: number) => {
   });
 };
 
-
 /**
- * Middleware which authorizes the external client.
- * @param req - Request object.
- * @param res - Response object.
- * @param next - function to call the next middleware.
+ * Middleware which authorizes the external client using multiple methods
  */
 export const authMiddleware = async (
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction
+) => {
+  // Skip auth for public routes
+  const publicRoutes = ['/health', '/api-docs', '/api/auth'];
+  if (publicRoutes.some(route => req.path.startsWith(route))) {
+    return next();
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return next(new Error('Unauthorized'));
+  }
+
+  const [authType, authData = ''] = authHeader.split(' ');
+
+  try {
+    switch (authType) {
+      case 'tma': {
+        // Telegram Mini App init data validation
+        validate(authData, config.telegramBotToken, {
+          expiresIn: 3600,
+        });
+
+        const { user } = parse(authData);
+        if (!user) {
+          throw new Error('No user data in init data');
+        }
+
+        req.user = {
+          telegramId: user.id.toString(),
+          firstName: user.first_name,
+          lastName: user.last_name,
+          username: user.username,
+          type: 'customer',
+        };
+
+        return next();
+      }
+      
+      case 'Bearer': {
+        // JWT token validation
+        const decoded = jwt.verify(authData, config.jwtSecret) as any;
+
+        // For staff, verify they still exist and are active
+        const staffData = await queries.staff.getStaffByTelegramId(BigInt(decoded.telegramId));
+        if (!staffData || !staffData.staff.isActive) {
+          throw new Error('Staff not found or inactive');
+        }
+        
+        req.user = {
+          telegramId: decoded.telegramId.toString(),
+          firstName: staffData.staff.firstName,
+          lastName: staffData.staff.lastName ?? undefined,
+          username: staffData.staff.username ?? undefined,
+          type: 'staff',
+          id: staffData.staff.id,
+          role: staffData.staff.role,
+          restaurantId: staffData.staff.restaurantId,
+        };
+
+        req.restaurant = {
+          id: staffData.restaurant.id,
+          name: staffData.restaurant.name,
+        };
+
+        return next();
+      }
+      
+      default:
+        throw new Error('Invalid auth type');
+    }
+  } catch (error) {
+    return next(new Error('Unauthorized'));
+  }
+};
+
+// Customer authentication middleware
+export const authenticateCustomer = async (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ) => {
-    // We expect passing init data in the Authorization header in the following format:
-    // <auth-type> <auth-data>
-    // <auth-type> must be "tma", and <auth-data> is Telegram Mini Apps init data.
-    const [authType, authData = ''] = (req.header('authorization') || '').split(' ');
-
-    switch (authType) {
-      case 'tma': {
-        try {
-          // Validate init data.
-          validate(authData, config.telegramBotToken, {
-            // We consider init data sign valid for 1 hour from their creation moment.
-            expiresIn: 3600,
-          });
-
-          // Parse init data. We will surely need it in the future.
-          const { user } = parse(authData);
-          req.user = user;
-
-          return next();
-        } catch (e) {
-          return next(e);
-        }
-      }
-      // ... other authorization methods.
-      default:
-        return next(new Error('Unauthorized'));
-    }
+  if (!req.user || req.user.type !== 'customer') {
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+      success: false,
+      error: 'Customer authentication required',
+    });
+  }
+  return next();
 };
 
 // Staff authentication middleware
@@ -161,45 +227,13 @@ export const authenticateStaff = async (
   res: Response,
   next: NextFunction
 ) => {
-  try {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: ERROR_MESSAGES.UNAUTHORIZED,
-      });
-    }
-
-    const decoded = jwt.verify(token, config.jwtSecret) as any;
-    
-    // Get staff from database
-    const staffData = await queries.staff.getStaffByTelegramId(decoded.telegramId);
-    
-    if (!staffData) {
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: 'Staff not found',
-      });
-    }
-
-    req.user = {
-      id: staffData.staff.id,
-      telegramId: staffData.staff.telegramId,
-      role: staffData.staff.role,
-      restaurantId: staffData.staff.restaurantId,
-    };
-
-    req.restaurant = {
-      id: staffData.restaurant.id,
-      name: staffData.restaurant.name,
-    };
-
-    return next();
-  } catch (error) {
-    return next(error);
+  if (!req.user || req.user.type !== 'staff') {
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+      success: false,
+      error: 'Staff authentication required',
+    });
   }
+  return next();
 };
 
 // Role-based authorization
@@ -308,22 +342,6 @@ export const corsOptions = {
     'Cache-Control',
     'X-API-Key',
   ],
-};
-
-// Request size limiting
-export const requestSizeLimit = '10mb';
-
-// Security headers
-export const securityHeaders = {
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-  crossOriginEmbedderPolicy: false,
 };
 
 // Health check middleware

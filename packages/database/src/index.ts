@@ -14,7 +14,6 @@ export * from './queries';
 export {
   restaurants,
   tables,
-  customers,
   staff,
   menuCategories,
   menuItems,

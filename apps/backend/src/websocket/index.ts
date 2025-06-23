@@ -1,6 +1,7 @@
 import { Server as HTTPServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { validate, parse } from '@telegram-apps/init-data-node';
 import { queries } from '@dine-now/database';
 import { WS_EVENTS } from '@dine-now/shared';
 import config from '../config';
@@ -8,10 +9,10 @@ import { logInfo, logError, logWarning } from '../utils/logger';
 import { corsOptions } from '../middleware';
 
 interface AuthenticatedSocket extends Socket {
-  userId?: string;
-  userType?: 'customer' | 'staff';
+  userType: 'customer' | 'staff';
+  userId?: string; // staff
   restaurantId?: string;
-  telegramId?: string;
+  telegramId?: string; // customer
 }
 
 interface SocketUser {
@@ -41,46 +42,50 @@ class WebSocketServer {
 
   private setupMiddleware() {
     // Authentication middleware
-    this.io.use(async (socket: AuthenticatedSocket, next) => {
+    this.io.use(async (socket: any, next) => {
       try {
-        const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
-        
-        if (!token) {
-          logWarning('WebSocket connection attempted without token', { 
+        // Check for token in handshake auth
+        const token = socket.handshake.auth.token;
+        const initDataRaw = socket.handshake.auth.initDataRaw || socket.handshake.headers.authorization?.split(' ')[1];
+
+        if (token) {
+          // JWT token authentication
+          const decoded = jwt.verify(token, config.jwtSecret) as any;
+          
+          if (decoded.staffId) {
+            const staffData = await queries.staff.getStaffByTelegramId(decoded.telegramId);
+            if (!staffData || !staffData.staff.isActive) {
+              return next(new Error('Staff not found or inactive'));
+            }
+            
+            socket.userType = 'staff';
+            socket.userId = staffData.staff.id;
+            socket.restaurantId = staffData.staff.restaurantId;
+            socket.telegramId = staffData.staff.telegramId.toString();
+            
+          } else {
+            return next(new Error('Invalid token'));
+          }
+        } else if (initDataRaw) {
+          // Telegram init data authentication
+          validate(initDataRaw, config.telegramBotToken, {
+            expiresIn: 3600,
+          });
+
+          const { user } = parse(initDataRaw);
+          if (!user) {
+            return next(new Error('No user data in init data'));
+          }
+
+          socket.userType = 'customer';
+          socket.telegramId = user.id.toString();
+
+        } else {
+          logWarning('WebSocket connection attempted without authentication', { 
             socketId: socket.id,
             ip: socket.handshake.address 
           });
           return next(new Error('Authentication required'));
-        }
-
-        const decoded = jwt.verify(token, config.jwtSecret) as any;
-        
-        // Check if it's a customer or staff token
-        if (decoded.userId) {
-          // Customer token
-          const customer = await queries.customer.getCustomerById(decoded.userId);
-          if (!customer) {
-            return next(new Error('Customer not found'));
-          }
-          
-          socket.userId = customer.id;
-          socket.userType = 'customer';
-          socket.telegramId = customer.telegramId;
-          
-        } else if (decoded.telegramId) {
-          // Staff token
-          const staffData = await queries.staff.getStaffByTelegramId(decoded.telegramId);
-          if (!staffData) {
-            return next(new Error('Staff not found'));
-          }
-          
-          socket.userId = staffData.staff.id;
-          socket.userType = 'staff';
-          socket.restaurantId = staffData.staff.restaurantId;
-          socket.telegramId = staffData.staff.telegramId;
-          
-        } else {
-          return next(new Error('Invalid token'));
         }
 
         logInfo('WebSocket client authenticated', {
@@ -99,14 +104,14 @@ class WebSocketServer {
   }
 
   private setupEventHandlers() {
-    this.io.on(WS_EVENTS.CONNECTION, (socket: AuthenticatedSocket) => {
+    this.io.on(WS_EVENTS.CONNECTION, (socket: any) => {
       this.handleConnection(socket);
     });
   }
 
   private handleConnection(socket: AuthenticatedSocket) {
-    const userId = socket.userId!;
-    const userType = socket.userType!;
+    const userId = socket.userId || socket.telegramId;
+    const userType = socket.userType;
     const restaurantId = socket.restaurantId!;
 
     logInfo('WebSocket client connected', {
@@ -118,7 +123,7 @@ class WebSocketServer {
 
     // Store user connection
     this.connectedUsers.set(socket.id, {
-      id: userId,
+      id: userId!,
       type: userType,
       restaurantId,
       rooms: new Set(),
@@ -126,6 +131,54 @@ class WebSocketServer {
 
     // Auto-join appropriate rooms
     this.autoJoinRooms(socket);
+
+    // Handle authentication message (for runtime auth changes)
+    socket.on('authenticate', async (data) => {
+      try {
+        if (data.token) {
+          // Re-authenticate with JWT token
+          const decoded = jwt.verify(data.token, config.jwtSecret) as any;
+          
+          if (decoded.staffId) {
+            const staffData = await queries.staff.getStaffByTelegramId(decoded.telegramId);
+            if (staffData && staffData.staff.isActive) {
+              socket.userId = staffData.staff.id;
+              socket.userType = 'staff';
+              socket.restaurantId = staffData.staff.restaurantId;
+              socket.telegramId = staffData.staff.telegramId.toString();
+              this.updateUserConnection(socket);
+              this.autoJoinRooms(socket);
+            }
+          }
+        } else if (data.initDataRaw) {
+          // Re-authenticate with Telegram init data
+          validate(data.initDataRaw, config.telegramBotToken, {
+            expiresIn: 3600, // 1hr
+          });
+
+          const { user } = parse(data.initDataRaw);
+          if (user) {
+            socket.userType = 'customer';
+            socket.telegramId = user.id.toString();
+            this.updateUserConnection(socket);
+            this.autoJoinRooms(socket);
+          }
+        }
+
+        socket.emit('authenticated', {
+          success: true,
+          userId: socket.userId,
+          userType: socket.userType,
+        });
+
+      } catch (error) {
+        logError(error as Error, { socketId: socket.id });
+        socket.emit('authenticated', {
+          success: false,
+          error: 'Authentication failed',
+        });
+      }
+    });
 
     // Handle room joining
     socket.on(WS_EVENTS.JOIN_ROOM, (data) => {
@@ -153,6 +206,19 @@ class WebSocketServer {
       userId,
       userType,
       restaurantId,
+    });
+  }
+
+  private updateUserConnection(socket: AuthenticatedSocket) {
+    const userId = socket.userId || socket.telegramId;
+    const userType = socket.userType;
+    const restaurantId = socket.restaurantId!;
+
+    this.connectedUsers.set(socket.id, {
+      id: userId!,
+      type: userType,
+      restaurantId,
+      rooms: new Set(),
     });
   }
 
@@ -191,7 +257,7 @@ class WebSocketServer {
   }
 
   private handleJoinRoom(socket: AuthenticatedSocket, data: { room: string; password?: string }) {
-    const { room, password: _} = data;
+    const { room } = data;
     const userId = socket.userId!;
     const userType = socket.userType!;
     
