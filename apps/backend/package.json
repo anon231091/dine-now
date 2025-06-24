@@ -16,8 +16,8 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@dine-now/database": "*",
-    "@dine-now/shared": "*",
+    "@dine-now/database": "workspace:*",
+    "@dine-now/shared": "workspace:*",
     "@telegram-apps/init-data-node": "^2.0.8",
     "bcrypt": "^5.1.1",
     "compression": "^1.7.4",

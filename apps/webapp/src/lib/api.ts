@@ -22,7 +22,8 @@ const createApiClient = (): AxiosInstance => {
   // Request interceptor to add auth token
   client.interceptors.request.use(
     (config) => {
-      const initDataRaw = retrieveRawInitData()
+      const initDataRaw = retrieveRawInitData();
+      console.log("url: ", config.baseURL, config.url);
       config.headers.Authorization = `tma ${initDataRaw}`;
       return config;
     },
@@ -96,7 +97,7 @@ export const api = {
     
     getById: (id: string) => apiClient.get(`/orders/${id}`),
     getHistory: (params?: { page?: number; limit?: number }) => 
-      apiClient.get('/orders/customer/history', { params }),
+      apiClient.get('/orders/history', { params }),
     updateStatus: (id: string, data: { status: string; notes?: string }) => 
       apiClient.patch(`/orders/${id}/status`, data),
   },

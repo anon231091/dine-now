@@ -1,11 +1,12 @@
 import { type PropsWithChildren } from 'react';
 import { Metadata } from 'next';
 import { getLocale } from 'next-intl/server';
+import { NextIntlClientProvider } from 'next-intl';
+import { AppRoot } from '@telegram-apps/telegram-ui';
 import { Toaster } from 'react-hot-toast';
 
-import { NextIntlClientProvider } from 'next-intl';
 import { QueryProvider } from '@/providers/QueryProvider';
-import { Root } from '@/components/Root';
+import { BottomNavigation } from '@/components/Navigation';
 
 import '@telegram-apps/telegram-ui/dist/styles.css';
 import 'normalize.css/normalize.css';
@@ -20,12 +21,15 @@ export default async function RootLayout({ children }: PropsWithChildren) {
   const locale = await getLocale();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
       <body>
         <NextIntlClientProvider>
           <QueryProvider>
-            <Root>
-              {children}
+            <AppRoot>
+              <main className="pb-16">
+                {children}
+              </main>
+              <BottomNavigation />
               <Toaster
                 position="top-center"
                 toastOptions={{
@@ -51,7 +55,7 @@ export default async function RootLayout({ children }: PropsWithChildren) {
                   },
                 }}
               />
-            </Root>
+            </AppRoot>
           </QueryProvider>
         </NextIntlClientProvider>
       </body>

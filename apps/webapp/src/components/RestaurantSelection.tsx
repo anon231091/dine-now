@@ -13,8 +13,7 @@ import { useRestaurants } from '@/lib/api';
 import { useRestaurantStore } from '@/store';
 import { Restaurant } from '@dine-now/shared';
 import { Page } from './Page';
-import { useLocale } from 'next-intl';
-import { useTranslations } from 'use-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 export function RestaurantSelection() {
   const t = useTranslations('RestaurantSelection');

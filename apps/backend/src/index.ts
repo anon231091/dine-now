@@ -6,19 +6,18 @@ import compression from 'compression';
 import morgan from 'morgan';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import { checkDatabaseHealth } from '@dine-now/database';
+import { checkDatabaseHealth, closeDatabaseConnection } from '@dine-now/database';
 
 // Import configuration and utilities
 import config, { validateConfig } from './config';
 import { logger, requestLogger } from './utils/logger';
 import { 
   errorHandler, 
-  notFoundHandler, 
+  // notFoundHandler, 
   createRateLimit,
   corsOptions,
   healthCheck,
   requestTiming,
-  authMiddleware,
 } from './middleware';
 
 // Import routes
@@ -88,7 +87,6 @@ app.use(compression());
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(authMiddleware);
 
 // Logging middleware
 if (config.nodeEnv === 'development') {
@@ -109,7 +107,7 @@ app.get('/health', healthCheck);
 app.get('/health/db', async (_req, res) => {
   try {
     const dbHealth = await checkDatabaseHealth();
-    
+
     if (dbHealth.healthy) {
       res.status(200).json({
         success: true,
@@ -146,7 +144,7 @@ app.get('/health/ws', (_req, res) => {
 });
 
 // API Documentation with Swagger
-if (config.enableSwagger) {
+// if (config.enableSwagger) {
   const specs = swaggerJsdoc(swaggerOptions);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
     explorer: true,
@@ -159,7 +157,7 @@ if (config.enableSwagger) {
     res.setHeader('Content-Type', 'application/json');
     res.send(specs);
   });
-}
+// }
 
 // API Routes
 app.use('/api', apiRoutes);
@@ -185,8 +183,9 @@ app.get('/api', (_req, res) => {
   });
 });
 
+// TODO: fix segment pattern
 // 404 handler for API routes
-app.use('/api/*', notFoundHandler);
+// app.use('/api/*', notFoundHandler);
 
 // Global error handler
 app.use(errorHandler);
@@ -199,7 +198,7 @@ const gracefulShutdown = async (signal: string) => {
     logger.info('HTTP server closed');
     
     // Close database connections
-    // closeDatabaseConnection();
+    closeDatabaseConnection();
     
     logger.info('Graceful shutdown completed');
     process.exit(0);

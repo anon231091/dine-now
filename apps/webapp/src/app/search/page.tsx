@@ -320,10 +320,6 @@ function SearchResultCard({
             
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <Title level="3" className="text-[--tg-theme-link-color]">
-                  {format.number(item.price, 'currency')}
-                </Title>
-                
                 <div className="flex items-center space-x-1 text-[--tg-theme-hint-color]">
                   <Clock className="w-4 h-4" />
                   <Caption level="1">

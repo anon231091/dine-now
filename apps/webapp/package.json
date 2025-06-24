@@ -15,7 +15,7 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@dine-now/shared": "*",
+    "@dine-now/shared": "workspace:*",
     "@hookform/resolvers": "^3.3.2",
     "@tailwindcss/postcss": "^4.1.10",
     "@tanstack/react-query": "^5.17.0",

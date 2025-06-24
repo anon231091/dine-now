@@ -5,7 +5,7 @@ import {
   asyncHandler, 
   validateParams,
   validateBody,
-  authenticateStaff,
+  authStaffMiddleware,
   requireRole,
   requireRestaurantAccess,
   AuthenticatedRequest 
@@ -17,7 +17,7 @@ const router = Router();
 
 router.get(
   '/load/:restaurantId',
-  authenticateStaff,
+  authStaffMiddleware,
   requireRestaurantAccess,
   validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -26,7 +26,7 @@ router.get(
     if (!restaurantId) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
-        error: "Undefined restaurantId"
+        error: "Invalid restaurantId"
       });
     }
 
@@ -48,7 +48,7 @@ router.get(
 
 router.put(
   '/load/:restaurantId',
-  authenticateStaff,
+  authStaffMiddleware,
   requireRole(['admin', 'manager', 'kitchen']),
   requireRestaurantAccess,
   validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
@@ -82,7 +82,7 @@ router.put(
 
 router.post(
   '/calculate/:restaurantId',
-  authenticateStaff,
+  authStaffMiddleware,
   requireRestaurantAccess,
   validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

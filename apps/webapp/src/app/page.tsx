@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button, Card, Placeholder, Spinner, Title } from '@telegram-apps/telegram-ui';
 import { initData, useSignal } from '@telegram-apps/sdk-react';
@@ -43,7 +43,7 @@ export default function HomePage() {
   // Handle authentication errors
   useEffect(() => {
     if (!user) {
-      setAuthError(t('Authentication failed. Please make sure you opened this app through Telegram.'));
+      setAuthError(t('Authentication failed. Please make sure you opened this app through Telegram'));
     }
   }, [user, t]);
 
@@ -80,14 +80,14 @@ export default function HomePage() {
             </Title>
             
             <p className="text-[--tg-theme-hint-color] mb-4">
-              {t('Please open this app through Telegram to continue.')}
+              {t('Please open this app through Telegram to continue')}
             </p>
             
             <Button
               mode="filled"
               size="l"
               stretched
-              onClick={() => router.reload()}
+              onClick={() => router.refresh()}
             >
               {t('Retry')}
             </Button>
@@ -103,14 +103,14 @@ export default function HomePage() {
       <Page back={false}>
         <div className="min-h-screen flex items-center justify-center p-4">
           <Placeholder
-            header="Table Not Found"
-            description="The QR code you scanned is invalid or the table is not available."
+            header={t('Table Not Found')}
+            description={t('The QR code you scanned is invalid or the table is not available')}
           >
             <Button 
               mode="filled" 
               onClick={() => {
                 useRestaurantStore.getState().clearRestaurant();
-                router.reload();
+                router.refresh();
               }}
             >
               {t('Start Over')}

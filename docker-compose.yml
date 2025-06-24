@@ -1,0 +1,166 @@
+services:
+  # PostgreSQL Database
+  database:
+    image: postgres:15-alpine
+    container_name: dine-now-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: restaurant_app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - dine-now-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d restaurant_app"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API Service
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: development
+    container_name: dine-now-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      
+      # Database Configuration
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: restaurant_app
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_SSL: false
+      DB_MAX_CONNECTIONS: 20
+      
+      # JWT Configuration
+      JWT_SECRET: dev-secret-key-change-in-production
+      JWT_EXPIRES_IN: 7d
+      
+      # CORS Configuration
+      CORS_ORIGIN: http://webapp:3000,https://t.me
+      
+      # Telegram Configuration
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      
+      # Features
+      ENABLE_SWAGGER: true
+      ENABLE_METRICS: false
+      LOG_LEVEL: debug
+      
+      # File Upload
+      UPLOAD_PATH: /app/uploads
+      MAX_FILE_SIZE: 5242880
+      
+      # Rate Limiting
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX: 1000
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./apps/backend/src:/app/apps/backend/src
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/backend/node_modules
+      - /app/packages/database/node_modules
+      - /app/packages/shared/node_modules
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - dine-now-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: pnpm run dev
+
+  # Web App (Telegram Mini App)
+  webapp:
+    build:
+      context: .
+      dockerfile: apps/webapp/Dockerfile
+      target: development
+    container_name: dine-now-webapp
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      
+      # API Configuration
+      NEXT_PUBLIC_API_URL: http://backend:3001
+      NEXT_PUBLIC_WS_URL: ws://backend:3001
+      
+      # App Configuration
+      NEXT_PUBLIC_APP_NAME: "DineNow - Restaurant Ordering"
+      NEXT_PUBLIC_BASE_PATH: ""
+      
+      # Telegram Configuration
+      NEXT_PUBLIC_BOT_USERNAME: ${NEXT_PUBLIC_BOT_USERNAME:-}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/webapp/src:/app/apps/webapp/src
+      - ./apps/webapp/public:/app/apps/webapp/public
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/webapp/node_modules
+      - /app/packages/shared/node_modules
+    depends_on:
+      - backend
+    networks:
+      - dine-now-network
+    command: pnpm run dev
+
+  # Redis (Optional - for caching and sessions)
+  redis:
+    image: redis:7-alpine
+    container_name: dine-now-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dine-now-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Database Administration (Optional)
+  adminer:
+    image: adminer:4-standalone
+    container_name: dine-now-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: database
+      ADMINER_DESIGN: nette
+    depends_on:
+      - database
+    networks:
+      - dine-now-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  dine-now-network:
+    driver: bridge

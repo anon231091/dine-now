@@ -13,8 +13,9 @@ import {
   validateBody, 
   validateParams,
   validateQuery,
-  authenticateCustomer,
-  authenticateStaff,
+  authMiddleware,
+  authGeneralMiddleware,
+  authStaffMiddleware,
   AuthenticatedRequest 
 } from '../middleware';
 import { logInfo, logError } from '../utils/logger';
@@ -46,7 +47,7 @@ const router = Router();
  */
 router.post(
   '/',
-  authenticateCustomer,
+  authGeneralMiddleware,
   validateBody(schemas.CreateOrder.omit({ customerId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { tableId, orderItems, notes } = req.body;
@@ -202,6 +203,7 @@ router.post(
  */
 router.get(
   '/:orderId',
+  authMiddleware,
   validateParams(schemas.Id.transform((id) => ({ orderId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { orderId } = req.params;
@@ -250,7 +252,7 @@ router.get(
 
 /**
  * @swagger
- * /api/orders/customer/history:
+ * /api/orders/history:
  *   get:
  *     summary: Get customer order history
  *     tags: [Orders]
@@ -272,8 +274,8 @@ router.get(
  *         description: Order history
  */
 router.get(
-  '/customer/history',
-  authenticateCustomer,
+  '/history',
+  authGeneralMiddleware,
   validateQuery(schemas.Pagination),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const customerTelegramId = BigInt(req.user!.telegramId);
@@ -329,7 +331,7 @@ router.get(
  */
 router.patch(
   '/:orderId/status',
-  authenticateStaff,
+  authStaffMiddleware,
   validateParams(schemas.Id.transform((id) => ({ orderId: id }))),
   validateBody(schemas.UpdateOrderStatus.omit({ orderId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -457,7 +459,7 @@ router.patch(
  */
 router.get(
   '/restaurant/:restaurantId',
-  authenticateStaff,
+  authStaffMiddleware,
   validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
   validateQuery(schemas.OrderSearch.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {

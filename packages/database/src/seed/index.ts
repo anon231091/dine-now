@@ -495,6 +495,8 @@ export const seedSampleOrders = async (
     orders.push(order);
   }
   
+  if (orders.length === 0) return []; 
+
   const insertedOrders = await db
     .insert(schema.orders)
     .values(orders)
@@ -670,7 +672,7 @@ if (require.main === module) {
       reseedDatabase().then(() => process.exit(0)).catch(() => process.exit(1));
       break;
     default:
-      console.log('Usage: npm run seed [seed|clear|reseed]');
+      console.log('Usage: pnpm run seed [seed|clear|reseed]');
       process.exit(1);
   }
 }

@@ -4,8 +4,8 @@ import { schemas, HTTP_STATUS } from '@dine-now/shared';
 import { 
   asyncHandler, 
   validateParams,
-  authenticateStaff,
   requireRole,
+  authStaffMiddleware,
   AuthenticatedRequest 
 } from '../middleware';
 import { logInfo } from '../utils/logger';
@@ -14,7 +14,7 @@ const router = Router();
 
 router.get(
   '/restaurant/:restaurantId',
-  authenticateStaff,
+  authStaffMiddleware,
   requireRole(['admin', 'manager']),
   validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -41,7 +41,7 @@ router.get(
 
 router.get(
   '/me',
-  authenticateStaff,
+  authStaffMiddleware,
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const telegramId = req.user!.telegramId;
 

@@ -6,7 +6,7 @@ const dbUrl = createDatabaseUrl(config);
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/schema/*',
+  schema: './src/schema/index.ts',
   out: './drizzle',
   dbCredentials: {
     url: dbUrl,

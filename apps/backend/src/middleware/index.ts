@@ -125,29 +125,42 @@ export const createRateLimit = (windowMs?: number, max?: number) => {
 };
 
 /**
- * Middleware which authorizes the external client using multiple methods
+ * Middleware which authorizes the external client for multiple methods 
  */
 export const authMiddleware = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  // We expect passing init data in the Authorization header in the following format:
+  // <auth-type> <auth-data>
+  // * general users: <auth-type> must be "tma" and <auth-data> is Telegram Mini Apps init data.
+  // * staff users: <auth-type> must be "Bearer" and <auth-data> is JWT token singed by this backend.
+  const authType = req.headers.authorization?.split(' ')[0];
+
+  switch (authType) {
+    case 'tma': 
+      return authGeneralMiddleware(req, res, next);
+    case 'Bearer':
+      return authStaffMiddleware(req, res, next);
+    default:
+      throw new Error('Unauthorized');
+  }
+};
+
+export const authGeneralMiddleware = async (
   req: AuthenticatedRequest,
   _res: Response,
   next: NextFunction
 ) => {
-  // Skip auth for public routes
-  const publicRoutes = ['/health', '/api-docs', '/api/auth'];
-  if (publicRoutes.some(route => req.path.startsWith(route))) {
-    return next();
-  }
+  // We expect passing init data in the Authorization header in the following format:
+  // <auth-type> <auth-data>
+  // <auth-type> must be "tma", and <auth-data> is Telegram Mini Apps init data.
+  const [authType, authData = ''] = (req.headers.authorization || '').split(' ');
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return next(new Error('Unauthorized'));
-  }
-
-  const [authType, authData = ''] = authHeader.split(' ');
-
-  try {
-    switch (authType) {
-      case 'tma': {
+  switch (authType) {
+    case 'tma':
+      try { 
         // Telegram Mini App init data validation
         validate(authData, config.telegramBotToken, {
           expiresIn: 3600,
@@ -167,9 +180,27 @@ export const authMiddleware = async (
         };
 
         return next();
+      } catch (error) {
+        return next(error);
       }
-      
-      case 'Bearer': {
+    default:
+      throw new Error('Unauthorized');
+  }
+}
+
+/**
+ * Middleware which authorizes the external client for staff user
+ */
+export const authStaffMiddleware = async (
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction
+) => {
+  const [authType, authData = ''] = (req.headers.authorization || '').split(' ');
+
+  switch (authType) {
+    case 'Bearer': 
+      try {
         // JWT token validation
         const decoded = jwt.verify(authData, config.jwtSecret) as any;
 
@@ -196,44 +227,12 @@ export const authMiddleware = async (
         };
 
         return next();
+      } catch (error) {
+        return next(error);
       }
-      
-      default:
-        throw new Error('Invalid auth type');
-    }
-  } catch (error) {
-    return next(new Error('Unauthorized'));
+    default:
+      throw new Error('Unauthorized');
   }
-};
-
-// Customer authentication middleware
-export const authenticateCustomer = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  if (!req.user || req.user.type !== 'customer') {
-    return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-      success: false,
-      error: 'Customer authentication required',
-    });
-  }
-  return next();
-};
-
-// Staff authentication middleware
-export const authenticateStaff = async (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  if (!req.user || req.user.type !== 'staff') {
-    return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-      success: false,
-      error: 'Staff authentication required',
-    });
-  }
-  return next();
 };
 
 // Role-based authorization
@@ -361,13 +360,14 @@ export const requestTiming = (req: Request, res: Response, next: NextFunction) =
   
   res.on('finish', () => {
     const duration = Date.now() - start;
-    res.setHeader('X-Response-Time', `${duration}ms`);
     
+    // Log slow requests (removed header setting since response is already sent)
     if (duration > 1000) {
       logWarning('Slow request detected', {
         method: req.method,
         url: req.url,
         duration: `${duration}ms`,
+        statusCode: res.statusCode,
       });
     }
   });

@@ -51,6 +51,7 @@ export const createDatabase = (config?: DatabaseConfig) => {
   const dbConfig = config || getDatabaseConfig();
   const client = createPostgresClient(dbConfig);
   
+  console.log("db config: ", dbConfig);
   return drizzle(client, { 
     schema,
     logger: process.env.NODE_ENV === 'development',
@@ -85,90 +86,4 @@ export const checkDatabaseHealth = async (): Promise<{ healthy: boolean; error?:
 export const closeDatabaseConnection = async () => {
   // Note: postgres-js handles connection pooling and cleanup automatically
   db = null;
-};
-
-// Migration utilities
-export const runMigrations = async () => {
-  // This would typically use drizzle-kit migrate command
-  // For now, we'll provide a helper to run SQL files
-  console.log('Run migrations using: npm run db:migrate');
-};
-
-// Transaction helper
-export const withTransaction = async <T>(
-  callback: (tx: Parameters<Parameters<ReturnType<typeof getDatabase>['transaction']>[0]>[0]) => Promise<T>
-): Promise<T> => {
-  const database = getDatabase();
-  return database.transaction(callback);
-};
-
-// Query helpers
-export const executeRawQuery = async (sql: string, _params?: any[]) => {
-  const database = getDatabase();
-  return database.execute(sql);
-};
-
-// Environment-specific configurations
-export const environments = {
-  development: {
-    host: 'localhost',
-    port: 5432,
-    database: 'restaurant_app_dev',
-    username: 'postgres',
-    password: 'password',
-    ssl: false,
-    maxConnections: 5,
-  },
-  test: {
-    host: 'localhost',
-    port: 5432,
-    database: 'restaurant_app_test',
-    username: 'postgres',
-    password: 'password',
-    ssl: false,
-    maxConnections: 2,
-  },
-  staging: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || 'restaurant_app_staging',
-    username: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '',
-    ssl: true,
-    maxConnections: 10,
-  },
-  production: {
-    host: process.env.DB_HOST || '',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || '',
-    username: process.env.DB_USER || '',
-    password: process.env.DB_PASSWORD || '',
-    ssl: true,
-    maxConnections: 20,
-  },
-} as const;
-
-// Get config for current environment
-export const getEnvironmentConfig = (env: string = process.env.NODE_ENV || 'development'): DatabaseConfig => {
-  if (env in environments) {
-    return environments[env as keyof typeof environments];
-  }
-  return environments.development;
-};
-
-// Connection pool monitoring
-export interface ConnectionPoolStats {
-  totalConnections: number;
-  idleConnections: number;
-  activeConnections: number;
-}
-
-// Note: postgres-js doesn't expose pool stats directly
-// This is a placeholder for monitoring implementation
-export const getConnectionPoolStats = (): ConnectionPoolStats => {
-  return {
-    totalConnections: 0,
-    idleConnections: 0,
-    activeConnections: 0,
-  };
 };

@@ -1,112 +1,9 @@
 {
-  "id": "f0b21c46-36d5-40db-a4bd-396f734f2fdf",
+  "id": "4ca7314e-1a28-4176-a064-c10e2542b5fc",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.customers": {
-      "name": "customers",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "telegram_id": {
-          "name": "telegram_id",
-          "type": "varchar(20)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "first_name": {
-          "name": "first_name",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "last_name": {
-          "name": "last_name",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "username": {
-          "name": "username",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "phone_number": {
-          "name": "phone_number",
-          "type": "varchar(20)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "customers_telegram_idx": {
-          "name": "customers_telegram_idx",
-          "columns": [
-            {
-              "expression": "telegram_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "customers_phone_idx": {
-          "name": "customers_phone_idx",
-          "columns": [
-            {
-              "expression": "phone_number",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "customers_telegram_id_unique": {
-          "name": "customers_telegram_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "telegram_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.kitchen_loads": {
       "name": "kitchen_loads",
       "schema": "",
@@ -350,6 +247,212 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.menu_item_variants": {
+      "name": "menu_item_variants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "menu_item_id": {
+          "name": "menu_item_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size": {
+          "name": "size",
+          "type": "item_size",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name_kh": {
+          "name": "name_kh",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_available": {
+          "name": "is_available",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "is_default": {
+          "name": "is_default",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "menu_item_variants_menu_item_idx": {
+          "name": "menu_item_variants_menu_item_idx",
+          "columns": [
+            {
+              "expression": "menu_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "menu_item_variants_size_idx": {
+          "name": "menu_item_variants_size_idx",
+          "columns": [
+            {
+              "expression": "size",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "menu_item_variants_price_idx": {
+          "name": "menu_item_variants_price_idx",
+          "columns": [
+            {
+              "expression": "price",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "menu_item_variants_available_idx": {
+          "name": "menu_item_variants_available_idx",
+          "columns": [
+            {
+              "expression": "is_available",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "menu_item_variants_default_idx": {
+          "name": "menu_item_variants_default_idx",
+          "columns": [
+            {
+              "expression": "is_default",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "menu_item_variants_sort_order_idx": {
+          "name": "menu_item_variants_sort_order_idx",
+          "columns": [
+            {
+              "expression": "menu_item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sort_order",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "menu_item_variants_menu_item_id_menu_items_id_fk": {
+          "name": "menu_item_variants_menu_item_id_menu_items_id_fk",
+          "tableFrom": "menu_item_variants",
+          "tableTo": "menu_items",
+          "columnsFrom": [
+            "menu_item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "menu_item_size_unique": {
+          "name": "menu_item_size_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "menu_item_id",
+            "size"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.menu_items": {
       "name": "menu_items",
       "schema": "",
@@ -396,12 +499,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "price": {
-          "name": "price",
-          "type": "numeric(10, 2)",
-          "primaryKey": false,
-          "notNull": true
         },
         "image_url": {
           "name": "image_url",
@@ -488,21 +585,6 @@
           "columns": [
             {
               "expression": "is_available",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "menu_items_price_idx": {
-          "name": "menu_items_price_idx",
-          "columns": [
-            {
-              "expression": "price",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -607,25 +689,26 @@
           "primaryKey": false,
           "notNull": true
         },
+        "variant_id": {
+          "name": "variant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "quantity": {
           "name": "quantity",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
-        },
-        "size": {
-          "name": "size",
-          "type": "item_size",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true,
+          "default": 1
         },
         "spice_level": {
           "name": "spice_level",
           "type": "spice_level",
           "typeSchema": "public",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "'none'"
         },
         "notes": {
           "name": "notes",
@@ -718,6 +801,19 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
+        },
+        "order_items_variant_id_menu_item_variants_id_fk": {
+          "name": "order_items_variant_id_menu_item_variants_id_fk",
+          "tableFrom": "order_items",
+          "tableTo": "menu_item_variants",
+          "columnsFrom": [
+            "variant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -737,9 +833,15 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "customer_id": {
-          "name": "customer_id",
-          "type": "uuid",
+        "customer_telegram_id": {
+          "name": "customer_telegram_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customer_name": {
+          "name": "customer_name",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true
         },
@@ -827,11 +929,11 @@
         }
       },
       "indexes": {
-        "orders_customer_idx": {
-          "name": "orders_customer_idx",
+        "orders_customer_telegram_idx": {
+          "name": "orders_customer_telegram_idx",
           "columns": [
             {
-              "expression": "customer_id",
+              "expression": "customer_telegram_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -940,19 +1042,6 @@
         }
       },
       "foreignKeys": {
-        "orders_customer_id_customers_id_fk": {
-          "name": "orders_customer_id_customers_id_fk",
-          "tableFrom": "orders",
-          "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "orders_restaurant_id_restaurants_id_fk": {
           "name": "orders_restaurant_id_restaurants_id_fk",
           "tableFrom": "orders",
@@ -1121,7 +1210,7 @@
         },
         "telegram_id": {
           "name": "telegram_id",
-          "type": "varchar(20)",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": true
         },
@@ -1376,7 +1465,7 @@
       "schema": "public",
       "values": [
         "small",
-        "medium",
+        "regular",
         "large"
       ]
     },
@@ -1397,8 +1486,7 @@
       "schema": "public",
       "values": [
         "none",
-        "mild",
-        "medium",
+        "regular",
         "spicy",
         "very_spicy"
       ]

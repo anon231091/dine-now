@@ -1,3 +1,19 @@
 {
-
+  "Navigation": {
+    "Home": "ទំព័រដើម",
+    "Search": "ស្វែងរក",
+    "Orders": "ការបញ្ជាទិញ",
+    "Profile": "ប្រវត្តិរូប"
+  },
+  "HomePage": {
+    "Loading Menu": "កំពុងផ្ទុកម៉ឺនុយ",
+    "Start Over": "ចាប់ផ្តើមឡើងវិញ",
+    "Retry": "សូមព្យាយាមឡើងវិញ,",
+    "Table Not Found": "រកមិនឃើញតារាង",
+    "Authentication Required": "ទាមទារការផ្ទៀង",
+    "The QR code you scanned is invalid or the table is not available": "កូដ QR ដែលអ្នកបានស្កេនមិនត្រឹមត្រូវ ឬតារាងមិនអាចប្រើបានទេ។",
+    "Loading restaurant information": "កំពុងផ្ទុកព័ត៌មានភោជនីយដ្ឋាន",
+    "Please open this app through Telegram to continue": "សូមបើកកម្មវិធីនេះតាមរយៈ Telegram ដើម្បីបន្ត។",
+    "Please make sure you opened this app through Telegram": "ការផ្ទៀងផ្ទាត់បានបរាជ័ សូមប្រាកដថាអ្នកបានបើកកម្មវិធីនេះតាមរយៈ Telegram ។"
+  }
 }

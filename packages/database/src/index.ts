@@ -28,7 +28,6 @@ export {
   createDatabase,
   getDatabaseConfig,
   checkDatabaseHealth,
-  withTransaction,
   closeDatabaseConnection,
 } from './config';
 

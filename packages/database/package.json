@@ -17,16 +17,16 @@
     "test:coverage": "jest --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push:pg",
+    "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:drop": "drizzle-kit drop",
-    "db:check": "drizzle-kit check:pg",
-    "db:up": "drizzle-kit up:pg",
+    "db:check": "drizzle-kit check",
+    "db:up": "drizzle-kit up",
     "seed": "tsx src/seed/index.ts seed",
     "seed:clear": "tsx src/seed/index.ts clear",
     "seed:reseed": "tsx src/seed/index.ts reseed",
-    "db:setup": "npm run db:push && npm run seed",
-    "db:reset": "npm run seed:clear && npm run db:push && npm run seed"
+    "db:setup": "pnpm run db:push && pnpm run seed",
+    "db:reset": "pnpm run seed:clear && pnpm run db:push && pnpm run seed"
   },
   "files": [
     "dist",
@@ -55,7 +55,7 @@
     }
   },
   "dependencies": {
-    "@dine-now/shared": "*",
+    "@dine-now/shared": "workspace:*",
     "drizzle-orm": "^0.44.2",
     "pg": "^8.16.1",
     "zod": "^3.22.4"
