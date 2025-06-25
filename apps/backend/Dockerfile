@@ -1,5 +1,5 @@
 # Backend Dockerfile
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install system dependencies
 RUN apk add --no-cache \
@@ -12,14 +12,14 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 # Copy root package.json and turbo config
-COPY package.json pnpm-workspace.yaml turbo.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 
 # Copy workspace packages
 COPY packages ./packages
 COPY apps/backend/package.json ./apps/backend/
 
 # Install dependencies
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 # Build shared packages
 RUN pnpm --filter=@dine-now/shared build
@@ -28,11 +28,11 @@ RUN pnpm --filter=@dine-now/database build
 # Development stage
 FROM base AS development
 
-# Install development dependencies
-RUN pnpm install
-
 # Copy backend source
 COPY apps/backend ./apps/backend
+
+# Install webapp-specific dependencies again to ensure next-intl is available
+RUN cd apps/backend && pnpm install --frozen-lockfile
 
 # Expose port
 EXPOSE 3001
@@ -54,7 +54,7 @@ COPY apps/backend ./apps/backend
 RUN pnpm run build --workspace=@dine-now/backend
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
 # Install system dependencies
 RUN apk add --no-cache \
@@ -75,7 +75,7 @@ COPY --from=builder /app/apps/backend/package.json ./apps/backend/
 COPY --from=builder /app/packages ./packages
 
 # Install production dependencies only
-RUN pnpm --filter=@dine-now/backend install --prod && pnpm cache delete
+RUN pnpm --filter=@dine-now/backend install --prod --frozen-lockfile && pnpm cache delete
 
 # Copy built application
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist

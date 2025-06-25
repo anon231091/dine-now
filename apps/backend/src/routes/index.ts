@@ -6,7 +6,7 @@ import orderRoutes from './orders';
 import staffRoutes from './staff';
 import kitchenRoutes from './kitchen';
 
-const router = Router();
+const router: Router = Router();
 
 // Mount all routes
 router.use('/auth', authRoutes);

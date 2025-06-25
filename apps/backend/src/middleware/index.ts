@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { validate, parse } from '@telegram-apps/init-data-node';
+import { validate, parse, SignatureInvalidError, SignatureMissingError } from '@telegram-apps/init-data-node';
 import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { ZodError } from 'zod';
@@ -38,7 +38,7 @@ export const errorHandler = (
   req: Request,
   res: Response,
   _next: NextFunction
-) => {
+): void => {
   logError(error, {
     method: req.method,
     url: req.url,
@@ -49,29 +49,36 @@ export const errorHandler = (
 
   // Handle different error types
   if (error instanceof AppError) {
-    return res.status(error.statusCode).json({
+    res.status(error.statusCode).json({
       success: false,
       error: error.message,
     });
   }
 
   if (error instanceof SharedValidationError || error instanceof ZodError) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       error: 'Validation failed',
       details: error instanceof ZodError ? error.errors : error.message,
     });
   }
 
+  if (error instanceof SignatureMissingError || error instanceof SignatureInvalidError) {
+    res.status(HTTP_STATUS.UNAUTHORIZED).json({
+      success: false,
+      error: ERROR_MESSAGES.UNAUTHORIZED,
+    });
+  }
+
   if (error.name === 'JsonWebTokenError' || error.message === 'Unauthorized') {
-    return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+    res.status(HTTP_STATUS.UNAUTHORIZED).json({
       success: false,
       error: ERROR_MESSAGES.UNAUTHORIZED,
     });
   }
 
   if (error.name === 'MulterError') {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       error: 'File upload error',
       details: error.message,
@@ -80,21 +87,21 @@ export const errorHandler = (
 
   // Database errors
   if (error.message.includes('duplicate key')) {
-    return res.status(HTTP_STATUS.CONFLICT).json({
+    res.status(HTTP_STATUS.CONFLICT).json({
       success: false,
       error: 'Duplicate entry',
     });
   }
 
   if (error.message.includes('foreign key')) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       error: 'Invalid reference',
     });
   }
 
   // Default error
-  return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+  res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
     success: false,
     error: config.nodeEnv === 'production' 
       ? ERROR_MESSAGES.SERVER_ERROR 
@@ -239,20 +246,20 @@ export const authStaffMiddleware = async (
 export const requireRole = (roles: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user?.role) {
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+      res.status(HTTP_STATUS.UNAUTHORIZED).json({
         success: false,
         error: ERROR_MESSAGES.UNAUTHORIZED,
       });
     }
 
-    if (!roles.includes(req.user.role)) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({
+    if (req.user?.role && !roles.includes(req.user.role)) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
         success: false,
         error: 'Insufficient permissions',
       });
     }
 
-    return next();
+    next();
   };
 };
 
@@ -261,11 +268,11 @@ export const requireRestaurantAccess = (
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   const restaurantId = req.params.restaurantId || req.body.restaurantId;
   
   if (!restaurantId) {
-    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
       error: 'Restaurant ID is required',
     });
@@ -273,13 +280,13 @@ export const requireRestaurantAccess = (
 
   // Staff users must have access to the restaurant
   if (req.user?.restaurantId && req.user.restaurantId !== restaurantId) {
-    return res.status(HTTP_STATUS.FORBIDDEN).json({
+    res.status(HTTP_STATUS.FORBIDDEN).json({
       success: false,
       error: 'Access denied to this restaurant',
     });
   }
 
-  return next();
+  next();
 };
 
 // Validation middleware factory
@@ -310,8 +317,8 @@ export const validateQuery = (schema: any) => {
 export const validateParams = (schema: any) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const validatedData = schema.parse(req.params);
-      req.params = validatedData;
+      // const validatedData = schema.parse(req.params);
+      // req.params = validatedData;
       next();
     } catch (error) {
       next(error);

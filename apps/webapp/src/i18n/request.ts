@@ -1,6 +1,6 @@
 import { getRequestConfig } from 'next-intl/server';
 
-import { defaultLocale, locales, timeZone, localeCurrency } from './config';
+import { defaultLocale, locales, timeZone } from './config';
 import { getLocale } from './locale';
 import type { Locale } from './types';
 
@@ -30,7 +30,7 @@ export default getRequestConfig(async () => {
       number: {
         currency: {
           style: 'currency',
-          currency: localeCurrency[locale],
+          currency: 'KHR',
         }
       }
     }

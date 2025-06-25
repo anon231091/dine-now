@@ -9,7 +9,7 @@ import {
 } from '../middleware';
 import { logInfo } from '../utils/logger';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger

@@ -1,5 +1,5 @@
 # Web App Dockerfile (Next.js Telegram Mini App)
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install system dependencies
 RUN apk add --no-cache libc6-compat
@@ -9,14 +9,14 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 # Copy root package.json and turbo config
-COPY package.json pnpm-workspace.yaml turbo.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 
 # Copy workspace packages
 COPY packages ./packages
 COPY apps/webapp/package.json ./apps/webapp/
 
 # Install dependencies
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 # Build shared packages
 RUN pnpm --filter=@dine-now/shared build
@@ -24,11 +24,11 @@ RUN pnpm --filter=@dine-now/shared build
 # Development stage
 FROM base AS development
 
-# Install development dependencies
-RUN pnpm install
-
 # Copy webapp source
 COPY apps/webapp ./apps/webapp
+
+# Install webapp-specific dependencies again to ensure next-intl is available
+RUN cd apps/webapp && pnpm install --frozen-lockfile
 
 # Expose port
 EXPOSE 3000
@@ -43,7 +43,7 @@ FROM base AS deps
 COPY apps/webapp/package.json ./apps/webapp/
 
 # Install production dependencies
-RUN pnpm --filter=@dine-now/webapp install --prod
+RUN pnpm --filter=@dine-now/webapp install --prod --frozen-lockfile
 
 # Builder stage
 FROM base AS builder
@@ -59,7 +59,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm run build --workspace=@dine-now/webapp
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
 # Install system dependencies
 RUN apk add --no-cache \

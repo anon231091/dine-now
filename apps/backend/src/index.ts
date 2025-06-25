@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Express } from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -27,7 +27,7 @@ import apiRoutes from './routes';
 import { initializeWebSocket } from './websocket';
 
 // Create Express app
-const app = express();
+const app: Express = express();
 const httpServer = createServer(app);
 
 // Swagger configuration
@@ -183,12 +183,14 @@ app.get('/api', (_req, res) => {
   });
 });
 
-// TODO: fix segment pattern
-// 404 handler for API routes
-// app.use('/api/*', notFoundHandler);
-
 // Global error handler
 app.use(errorHandler);
+
+// NOTE: ALWAYS place not found handler at very bottom of the stack
+// see more: https://expressjs.com/en/starter/faq.html#how-do-i-handle-404-responses
+//
+// 404 handler for API routes
+// app.use('/api/*', notFoundHandler);
 
 // Graceful shutdown handling
 const gracefulShutdown = async (signal: string) => {

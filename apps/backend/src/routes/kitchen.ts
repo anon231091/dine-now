@@ -13,7 +13,7 @@ import {
 import { logInfo } from '../utils/logger';
 import { broadcastKitchenUpdate } from '../websocket';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/load/:restaurantId',

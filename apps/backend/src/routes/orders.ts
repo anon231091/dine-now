@@ -21,7 +21,7 @@ import {
 import { logInfo, logError } from '../utils/logger';
 import { broadcastOrderUpdate } from '../websocket';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger

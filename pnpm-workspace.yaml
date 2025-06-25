@@ -1,8 +1,3 @@
 packages:
   - 'apps/*'
   - 'packages/*'
-
-packageExtensions:
-  drizzle-kit:
-    dependencies:
-      drizzle-orm: "*"

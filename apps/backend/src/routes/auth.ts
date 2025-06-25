@@ -12,7 +12,7 @@ import {
 import config from '../config';
 import { logInfo, logWarning } from '../utils/logger';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @swagger

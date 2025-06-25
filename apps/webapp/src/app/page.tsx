@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button, Card, Placeholder, Spinner, Title } from '@telegram-apps/telegram-ui';
@@ -20,7 +20,6 @@ export default function HomePage() {
   const user = useSignal(initData.user);
   const { currentRestaurant } = useRestaurantStore();
   const { setCurrentPage } = useUIStore();
-  const [authError, setAuthError] = useState<string | null>(null);
   
   const { 
     data: restaurantData, 
@@ -40,31 +39,8 @@ export default function HomePage() {
     }
   }, [restaurantData]);
 
-  // Handle authentication errors
-  useEffect(() => {
-    if (!user) {
-      setAuthError(t('Authentication failed. Please make sure you opened this app through Telegram'));
-    }
-  }, [user, t]);
-
-  // Show loading while authenticating or loading restaurant data
-  if (loadingRestaurant) {
-    return (
-      <Page back={false}>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <Spinner size="l" />
-            <p className="mt-4 text-[--tg-theme-hint-color]">
-              {t('Loading Menu')}...
-            </p>
-          </div>
-        </div>
-      </Page>
-    );
-  }
-
   // Show authentication error
-  if (authError) {
+  if (!user) {
     return (
       <Page back={false}>
         <div className="min-h-screen flex items-center justify-center p-4">
@@ -80,25 +56,28 @@ export default function HomePage() {
             </Title>
             
             <p className="text-[--tg-theme-hint-color] mb-4">
-              {t('Please open this app through Telegram to continue')}
+              {t('Please make sure you opened this app through Telegram')}
             </p>
-            
-            <Button
-              mode="filled"
-              size="l"
-              stretched
-              onClick={() => router.refresh()}
-            >
-              {t('Retry')}
-            </Button>
           </Card>
         </div>
       </Page>
     );
-  }
-
-  // Show restaurant error
-  if (restaurantError && tableId) {
+  } else if (loadingRestaurant) {
+    // Show loading while authenticating or loading restaurant data
+    return (
+      <Page back={false}>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Spinner size="l" />
+            <p className="mt-4 text-[--tg-theme-hint-color]">
+              {t('Loading Menu')}...
+            </p>
+          </div>
+        </div>
+      </Page>
+    );
+  } else if (restaurantError) {
+    // Show restaurant error
     return (
       <Page back={false}>
         <div className="min-h-screen flex items-center justify-center p-4">
@@ -119,34 +98,11 @@ export default function HomePage() {
         </div>
       </Page>
     );
-  }
-
-  // Show restaurant selection when no QR code scanned or restaurant not found
-  if (!currentRestaurant && !tableId) {
+  } else if (currentRestaurant) {
+    // Show main menu view if restaurant is selected
+    return <MenuView />;
+  } else {
+    // Fallback to restaurant selection
     return <RestaurantSelection />;
   }
-
-  // Show loading if we have a table ID but restaurant data is still loading
-  if (tableId && !currentRestaurant && !restaurantError) {
-    return (
-      <Page back={false}>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <Spinner size="l" />
-            <p className="mt-4 text-[--tg-theme-hint-color]">
-              {t('Loading restaurant information')}...
-            </p>
-          </div>
-        </div>
-      </Page>
-    );
-  }
-
-  // Show main menu view if restaurant is selected
-  if (currentRestaurant) {
-    return <MenuView />;
-  }
-
-  // Fallback to restaurant selection
-  return <RestaurantSelection />;
 }

@@ -12,11 +12,8 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-15s %s\n", $$1, $$2}'
 
 # Development Commands
-dev: ## Start all services in development mode
+dev: ## Start essential services in local development mode
 	docker-compose up -d database redis
-	@echo "Waiting for database to be ready..."
-	@sleep 10
-	docker-compose up backend webapp adminer
 
 up: ## Start all services
 	docker-compose up -d
@@ -29,6 +26,10 @@ build: ## Build all services
 
 rebuild: ## Rebuild all services from scratch
 	docker-compose build --no-cache
+
+clean: ## Stop services and remove containers, networks, and volumes
+	docker-compose down -v --remove-orphans
+	docker system prune -f
 
 # Database Commands
 seed: ## Seed the database with sample data
@@ -80,11 +81,6 @@ test-shared: ## Run shared package tests
 lint: ## Run linting
 	docker-compose exec backend pnpm --filter=@dine-now/backend lint
 	docker-compose exec webapp pnpm --filter=@dine-now/webapp lint
-
-# Cleanup Commands
-clean: ## Stop services and remove containers, networks, and volumes
-	docker-compose down -v --remove-orphans
-	docker system prune -f
 
 # Health Checks
 health: ## Check health of all services
