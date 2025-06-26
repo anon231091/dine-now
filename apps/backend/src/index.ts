@@ -13,7 +13,6 @@ import config, { validateConfig } from './config';
 import { logger, requestLogger } from './utils/logger';
 import { 
   errorHandler, 
-  // notFoundHandler, 
   createRateLimit,
   corsOptions,
   healthCheck,
@@ -185,12 +184,6 @@ app.get('/api', (_req, res) => {
 
 // Global error handler
 app.use(errorHandler);
-
-// NOTE: ALWAYS place not found handler at very bottom of the stack
-// see more: https://expressjs.com/en/starter/faq.html#how-do-i-handle-404-responses
-//
-// 404 handler for API routes
-// app.use('/api/*', notFoundHandler);
 
 // Graceful shutdown handling
 const gracefulShutdown = async (signal: string) => {
