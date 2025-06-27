@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { validate, parse, SignatureInvalidError, SignatureMissingError } from '@telegram-apps/init-data-node';
 import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
-import { ZodError } from 'zod/v4';
+import { ZodError, ZodSchema } from 'zod/v4';
 import { 
   AppError, 
   HTTP_STATUS,
@@ -14,7 +14,7 @@ import {
   UserType,
   ID,
 } from '@dine-now/shared';
-import { queries } from '@dine-now/database';
+import { queries, validateSchema } from '@dine-now/database';
 import config from '../config';
 import { logError, logWarning } from '../utils/logger';
 
@@ -263,11 +263,10 @@ export const requireRestaurantAccess = (
 };
 
 // Validation middleware factory
-export const validateBody = (schema: any) => {
+export const validateBody = <T>(schema: ZodSchema<T>) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const validatedData = schema.parse(req.body);
-      req.body = validatedData;
+      validateSchema(schema)(req.body);
       next();
     } catch (error) {
       next(error);
@@ -275,11 +274,10 @@ export const validateBody = (schema: any) => {
   };
 };
 
-export const validateQuery = (schema: any) => {
+export const validateQuery = <T>(schema: ZodSchema<T>) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const validatedData = schema.parse(req.query);
-      req.query = validatedData;
+      validateSchema(schema)(req.query);
       next();
     } catch (error) {
       next(error);
@@ -287,11 +285,10 @@ export const validateQuery = (schema: any) => {
   };
 };
 
-export const validateParams = (schema: any) => {
+export const validateParams = <T>(schema: ZodSchema<T>) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const validatedData = schema.parse(req.params);
-      req.params = validatedData;
+      validateSchema(schema)(req.params);
       next();
     } catch (error) {
       next(error);

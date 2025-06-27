@@ -102,7 +102,7 @@ router.get(
  */
 router.get(
   '/:restaurantId',
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
@@ -139,7 +139,7 @@ router.get(
  */
 router.get(
   '/:restaurantId/tables',
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
@@ -175,7 +175,7 @@ router.get(
  */
 router.get(
   '/table/:tableId',
-  validateParams(validators.Id.transform((id) => ({ tableId: id }))),
+  validateParams(validators.TableParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { tableId } = req.params;
 
@@ -215,7 +215,7 @@ router.get(
  */
 router.get(
   '/:restaurantId/kitchen-status',
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
@@ -288,7 +288,7 @@ router.get(
  */
 router.get(
   '/:restaurantId/analytics',
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   validateQuery(validators.AnalyticsQuery.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;

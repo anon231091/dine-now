@@ -200,7 +200,7 @@ router.post(
 router.get(
   '/:orderId',
   authMiddleware,
-  validateParams(validators.Id.transform((id) => ({ orderId: id }))),
+  validateParams(validators.OrderParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { orderId } = req.params;
     const userTelegramId = BigInt(req.user!.telegramId);
@@ -312,7 +312,7 @@ router.get(
 router.patch(
   '/:orderId/status',
   authStaffMiddleware,
-  validateParams(validators.Id.transform((id) => ({ orderId: id }))),
+  validateParams(validators.OrderParams),
   validateBody(validators.UpdateOrderStatus.omit({ orderId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { orderId } = req.params;
@@ -424,7 +424,7 @@ router.patch(
 router.get(
   '/restaurant/:restaurantId',
   authStaffMiddleware,
-  validateParams(validators.Id.transform((id: ID) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   validateQuery(validators.OrderSearch.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
@@ -471,7 +471,7 @@ router.get(
  */
 router.get(
   '/restaurant/:restaurantId/active',
-  validateParams(validators.Id.transform((id: ID) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 

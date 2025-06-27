@@ -16,7 +16,7 @@ router.get(
   '/restaurant/:restaurantId',
   authStaffMiddleware,
   requireRole(['admin', 'manager']),
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
     const { role } = req.query as any;

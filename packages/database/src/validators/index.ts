@@ -4,17 +4,17 @@ import { restaurants, tables, staff, menuCategories, menuItems, menuItemVariants
 import { BUSINESS_RULES, REGEX } from '@dine-now/shared';
 
 // Common schemas
-export const IdSchema = z.string().min(1, 'ID is required');
-export const TelegramIdSchema = z.number().int().positive('Invalid Telegram ID');
-export const PhoneNumberSchema = z
+const IdSchema = z.string().min(1, 'ID is required');
+const TelegramIdSchema = z.number().int().positive('Invalid Telegram ID');
+const PhoneNumberSchema = z
   .string()
   .regex(REGEX.PHONE_KH, 'Invalid Cambodia phone number format');
-export const PriceSchema = z
+const PriceSchema = z
   .string()
   .regex(REGEX.PRICE, 'Invalid price format');
-export const SortOrderSchema = z.number().int().min(0, "Sort order must be non-negative");
+const SortOrderSchema = z.number().int().min(0, "Sort order must be non-negative");
 
-export const PaginationSchema = z.object({
+const PaginationSchema = z.object({
   page: z.number().int().min(1, 'Page must be at least 1').default(1),
   limit: z
     .number()
@@ -34,34 +34,34 @@ const { createInsertSchema } = createSchemaFactory({
 });
 
 // Staff API schemas
-export const CreateStaffSchema = createInsertSchema(staff, {
+const CreateStaffSchema = createInsertSchema(staff, {
   restaurantId: IdSchema,
   telegramId: TelegramIdSchema
 });
-export const UpdateStaffSchema = CreateStaffSchema.partial().omit({ 
+const UpdateStaffSchema = CreateStaffSchema.partial().omit({ 
   restaurantId: true, 
   telegramId: true 
 });
 
 // Restaurant API schemas
-export const CreateRestaurantSchema = createInsertSchema(restaurants, { phoneNumber: PhoneNumberSchema });
-export const UpdateRestaurantSchema = CreateRestaurantSchema.partial();
+const CreateRestaurantSchema = createInsertSchema(restaurants, { phoneNumber: PhoneNumberSchema });
+const UpdateRestaurantSchema = CreateRestaurantSchema.partial();
 
 // Table API schemas
-export const CreateTableSchema = createInsertSchema(tables, { restaurantId: IdSchema });
-export const UpdateTableSchema = CreateTableSchema.partial().omit({ restaurantId: true });
+const CreateTableSchema = createInsertSchema(tables, { restaurantId: IdSchema });
+const UpdateTableSchema = CreateTableSchema.partial().omit({ restaurantId: true });
 
 // Menu Category API schemas
-export const CreateMenuCategorySchema = createInsertSchema(menuCategories, {
+const CreateMenuCategorySchema = createInsertSchema(menuCategories, {
   restaurantId: IdSchema,
   sortOrder: SortOrderSchema
 });
-export const UpdateMenuCategorySchema = CreateMenuCategorySchema.partial().omit({ 
+const UpdateMenuCategorySchema = CreateMenuCategorySchema.partial().omit({ 
   restaurantId: true 
 });
 
 // Menu Item API schemas
-export const CreateMenuItemSchema = createInsertSchema(menuItems, {
+const CreateMenuItemSchema = createInsertSchema(menuItems, {
   categoryId: IdSchema,
   restaurantId: IdSchema,
   sortOrder: SortOrderSchema,
@@ -71,23 +71,23 @@ export const CreateMenuItemSchema = createInsertSchema(menuItems, {
     .max(BUSINESS_RULES.MAX_PREPARATION_TIME)
     .default(BUSINESS_RULES.DEFAULT_PREPARATION_TIME),
 });
-export const UpdateMenuItemSchema = CreateMenuItemSchema.partial().omit({ 
+const UpdateMenuItemSchema = CreateMenuItemSchema.partial().omit({ 
   restaurantId: true 
 });
 
 // Menu Item Variant API schemas
-export const CreateMenuItemVariantSchema = createInsertSchema(menuItemVariants, {
+const CreateMenuItemVariantSchema = createInsertSchema(menuItemVariants, {
   menuItemId: IdSchema,
   price: PriceSchema,
   sortOrder: SortOrderSchema
 });
 
-export const UpdateMenuItemVariantSchema = CreateMenuItemVariantSchema.partial().omit({ 
+const UpdateMenuItemVariantSchema = CreateMenuItemVariantSchema.partial().omit({ 
   menuItemId: true 
 });
 
 // Order Item schema for order creation
-export const OrderItemInputSchema = z.object({
+const OrderItemInputSchema = z.object({
   menuItemId: IdSchema,
   variantId: IdSchema,
   quantity: z.number().int().min(1).max(50),
@@ -96,7 +96,7 @@ export const OrderItemInputSchema = z.object({
 });
 
 // Order API schemas
-export const CreateOrderSchema = z.object({
+const CreateOrderSchema = z.object({
   tableId: IdSchema,
   customerTelegramId: TelegramIdSchema,
   orderItems: z
@@ -106,21 +106,21 @@ export const CreateOrderSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
-export const UpdateOrderStatusSchema = z.object({
+const UpdateOrderStatusSchema = z.object({
   orderId: IdSchema,
   status: z.enum(orderStatusEnum.enumValues),
   notes: z.string().max(500).optional(),
 });
 
 // Kitchen Load API schemas
-export const UpdateKitchenLoadSchema = z.object({
+const UpdateKitchenLoadSchema = z.object({
   restaurantId: IdSchema,
   currentOrders: z.number().int().min(0),
   averagePreparationTime: z.number().min(0),
 });
 
 // Search and filter schemas
-export const MenuSearchSchema = z.object({
+const MenuSearchSchema = z.object({
   restaurantId: IdSchema,
   categoryId: IdSchema.optional(),
   search: z.string().max(100).optional(),
@@ -133,20 +133,20 @@ export const MenuSearchSchema = z.object({
   ...PaginationSchema.shape
 });
 
-export const OrderSearchSchema = z.object({
+const OrderSearchSchema = z.object({
   restaurantId: IdSchema.optional(),
   customerId: IdSchema.optional(),
   tableId: IdSchema.optional(),
   status: z.enum(['pending', 'confirmed', 'preparing', 'ready', 'served', 'cancelled']).optional(),
-  dateFrom: z.date().optional(),
-  dateTo: z.date().optional(),
+  dateFrom: z.iso.datetime().optional(),
+  dateTo: z.iso.datetime().optional(),
   sortBy: z.enum(['createdAt', 'totalAmount', 'status']).default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   ...PaginationSchema.shape
 });
 
 // File upload schemas
-export const ImageUploadSchema = z.object({
+const ImageUploadSchema = z.object({
   file: z.object({
     size: z.number().max(BUSINESS_RULES.MAX_IMAGE_SIZE, 'File size too large'),
     type: z.enum(['image/jpeg', 'image/png', 'image/webp'] as const, ""),
@@ -154,10 +154,10 @@ export const ImageUploadSchema = z.object({
 });
 
 // Analytics schemas
-export const AnalyticsQuerySchema = z.object({
+const AnalyticsQuerySchema = z.object({
   restaurantId: IdSchema,
-  dateFrom: z.date(),
-  dateTo: z.date(),
+  dateFrom: z.iso.datetime(),
+  dateTo: z.iso.datetime(),
   granularity: z.enum(['hour', 'day', 'week', 'month']).default('day'),
 });
 
@@ -181,13 +181,43 @@ export const validateSchema = <T>(schema: z.ZodSchema<T>) => {
   };
 };
 
+// Parameter validation schemas for routes
+const RestaurantParamsSchema = z.object({
+  restaurantId: IdSchema,
+});
+
+const TableParamsSchema = z.object({
+  tableId: IdSchema,
+});
+
+const OrderParamsSchema = z.object({
+  orderId: IdSchema,
+});
+
+const MenuItemParamsSchema = z.object({
+  itemId: IdSchema,
+});
+
+const VariantParamsSchema = z.object({
+  variantId: IdSchema,
+});
+
 // Export all schemas for easy access
 export const validators = {
+  // Base schema
   Id: IdSchema,
   TelegramId: TelegramIdSchema,
   PhoneNumber: PhoneNumberSchema,
   Pagination: PaginationSchema,
   
+  // Parameter schemas
+  RestaurantParams: RestaurantParamsSchema,
+  TableParams: TableParamsSchema,
+  OrderParams: OrderParamsSchema,
+  MenuItemParams: MenuItemParamsSchema,
+  VariantParams: VariantParamsSchema,
+
+  // DTO schema
   CreateRestaurant: CreateRestaurantSchema,
   UpdateRestaurant: UpdateRestaurantSchema,
   

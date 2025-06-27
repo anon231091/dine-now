@@ -19,7 +19,7 @@ router.get(
   '/load/:restaurantId',
   authStaffMiddleware,
   requireRestaurantAccess,
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
@@ -44,7 +44,7 @@ router.put(
   authStaffMiddleware,
   requireRole(['admin', 'manager', 'kitchen']),
   requireRestaurantAccess,
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   validateBody(validators.UpdateKitchenLoad.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
@@ -70,7 +70,7 @@ router.post(
   '/calculate/:restaurantId',
   authStaffMiddleware,
   requireRestaurantAccess,
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 

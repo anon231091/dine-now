@@ -108,7 +108,7 @@ const router: Router = Router();
  */
 router.get(
   '/:restaurantId',
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
@@ -210,7 +210,7 @@ router.get(
  */
 router.get(
   '/:restaurantId/search',
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   validateQuery(validators.MenuSearch.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
@@ -250,7 +250,7 @@ router.get(
  */
 router.get(
   '/item/:itemId',
-  validateParams(validators.Id.transform((id) => ({ itemId: id }))),
+  validateParams(validators.MenuItemParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { itemId } = req.params;
     
@@ -293,7 +293,7 @@ router.get(
  */
 router.get(
   '/variant/:variantId',
-  validateParams(validators.Id.transform((id) => ({ variantId: id }))),
+  validateParams(validators.VariantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { variantId } = req.params;
 
@@ -334,7 +334,7 @@ router.get(
  */
 router.get(
   '/:restaurantId/categories',
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
@@ -385,7 +385,7 @@ router.get(
  */
 router.get(
   '/:restaurantId/popular',
-  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
     const limit = parseInt(req.query.limit as string) || 10;
