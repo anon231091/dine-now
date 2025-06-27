@@ -1,12 +1,18 @@
 import { Router, Response } from 'express';
-import { queries } from '@dine-now/database';
+import { queries, validators } from '@dine-now/database';
 import { 
-  schemas, 
   HTTP_STATUS, 
   generateOrderNumber, 
   estimatePreparationTime,
   calculateSubtotal,
-  OrderStatus
+  OrderStatus,
+  WS_EVENTS,
+  ID,
+  NotFoundError,
+  BadRequestError,
+  ServerError,
+  UserType,
+  AccessDeniedError
 } from '@dine-now/shared';
 import { 
   asyncHandler, 
@@ -19,7 +25,7 @@ import {
   AuthenticatedRequest 
 } from '../middleware';
 import { logInfo, logError } from '../utils/logger';
-import { broadcastOrderUpdate } from '../websocket';
+import { broadcastOrderUpdate, CUSTOMER_ROOM_PREFIX } from '../websocket';
 
 const router: Router = Router();
 
@@ -48,7 +54,7 @@ const router: Router = Router();
 router.post(
   '/',
   authGeneralMiddleware,
-  validateBody(schemas.CreateOrder.omit({ customerId: true })),
+  validateBody(validators.CreateOrder),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { tableId, orderItems, notes } = req.body;
     const customerTelegramId = BigInt(req.user!.telegramId);
@@ -64,14 +70,12 @@ router.post(
     const tableData = await queries.table.getTableById(tableId);
     
     if (!tableData) {
-      logError(new Error('Table data not found'), { 
+      let error = new NotFoundError('Table data not found');
+      logError(error, { 
         customerTelegramId: req.user!.telegramId, 
         tableId 
       });
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: 'Invalid table ID',
-      });
+      throw error;
     }
 
     const restaurantId = tableData.restaurant.id;
@@ -86,18 +90,12 @@ router.post(
       const variantData = await queries.menu.getVariantById(orderItem.variantId);
       
       if (!variantData || !variantData.variant.isAvailable || !variantData.item.isAvailable) {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({
-          success: false,
-          error: `Menu item variant ${orderItem.variantId} is not available`,
-        });
+        throw new NotFoundError(`Menu item variant ${orderItem.variantId} is not available`);
       }
 
       // Verify the menu item matches what was requested
       if (variantData.item.id !== orderItem.menuItemId) {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({
-          success: false,
-          error: `Variant ${orderItem.variantId} does not belong to menu item ${orderItem.menuItemId}`,
-        });
+        throw new BadRequestError(`Variant ${orderItem.variantId} does not belong to menu item ${orderItem.menuItemId}`);
       }
 
       const unitPrice = parseFloat(variantData.variant.price);
@@ -152,21 +150,19 @@ router.post(
     }
 
     if (!orderData.order) {
-      logError(new Error('Failed to place order'), { 
+      let error = new ServerError('Failed to place order');
+      logError(error, { 
         customerTelegramId: req.user!.telegramId, 
         tableId 
       });
-      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        error: 'Failed to place order',
-      });
+      throw error;
     }
 
     // Get complete order data for response
     const completeOrder = await queries.order.getOrderById(orderData.order.id);
 
     // Broadcast to restaurant staff
-    broadcastOrderUpdate(restaurantId, 'new_order', completeOrder);
+    broadcastOrderUpdate(restaurantId, WS_EVENTS.NEW_ORDER, completeOrder);
 
     logInfo('Order created successfully', { 
       orderId: orderData.order.id, 
@@ -204,43 +200,27 @@ router.post(
 router.get(
   '/:orderId',
   authMiddleware,
-  validateParams(schemas.Id.transform((id) => ({ orderId: id }))),
+  validateParams(validators.Id.transform((id) => ({ orderId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { orderId } = req.params;
     const userTelegramId = BigInt(req.user!.telegramId);
     const userType = req.user!.type;
 
-    if (!orderId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: 'Invalid order ID',
-      });
-    }
-
     logInfo('Fetching order details', { orderId, userTelegramId: req.user!.telegramId, userType });
 
-    const order = await queries.order.getOrderById(orderId);
+    const order = await queries.order.getOrderById(orderId!);
 
     if (!order) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        error: 'Order not found',
-      });
+      throw new NotFoundError('Order not found');
     }
 
     // Check if user has access to this order
-    if (userType === 'customer' && order.order.customerTelegramId !== userTelegramId) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({
-        success: false,
-        error: 'Access denied',
-      });
+    if (userType === UserType.General && order.order.customerTelegramId !== userTelegramId) {
+      throw new AccessDeniedError('Access denied, you can only view your order');
     }
 
-    if (userType === 'staff' && order.order.restaurantId !== req.user!.restaurantId) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({
-        success: false,
-        error: 'Access denied',
-      });
+    if (userType === UserType.Staff && order.order.restaurantId !== req.user!.restaurantId) {
+      throw new AccessDeniedError('Access denied, this order is not in your restaurant');
     }
 
     return res.status(HTTP_STATUS.OK).json({
@@ -276,7 +256,7 @@ router.get(
 router.get(
   '/history',
   authGeneralMiddleware,
-  validateQuery(schemas.Pagination),
+  validateQuery(validators.Pagination),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const customerTelegramId = BigInt(req.user!.telegramId);
     const pagination = req.query as any;
@@ -332,37 +312,24 @@ router.get(
 router.patch(
   '/:orderId/status',
   authStaffMiddleware,
-  validateParams(schemas.Id.transform((id) => ({ orderId: id }))),
-  validateBody(schemas.UpdateOrderStatus.omit({ orderId: true })),
+  validateParams(validators.Id.transform((id) => ({ orderId: id }))),
+  validateBody(validators.UpdateOrderStatus.omit({ orderId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { orderId } = req.params;
     const { status, notes } = req.body;
 
-    if (!orderId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: 'Invalid order ID',
-      });
-    }
-
     logInfo('Updating order status', { orderId, status, notes });
 
     // Get current order
-    const currentOrder = await queries.order.getOrderById(orderId);
+    const currentOrder = await queries.order.getOrderById(orderId!);
     
     if (!currentOrder) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        error: 'Order not found',
-      });
+      throw new NotFoundError('Order not found');
     }
 
     // Check if staff has access to this restaurant
     if (currentOrder.order.restaurantId !== req.user!.restaurantId) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({
-        success: false,
-        error: 'Access denied to this restaurant',
-      });
+      throw new AccessDeniedError('Access denied to this restaurant');
     }
 
     // Validate status transition
@@ -377,14 +344,11 @@ router.patch(
 
     const currentStatus = currentOrder.order.status as OrderStatus;
     if (!validTransitions[currentStatus].includes(status as OrderStatus)) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: `Cannot transition from ${currentStatus} to ${status}`,
-      });
+      throw new BadRequestError(`Cannot transition from ${currentStatus} to ${status}`);
     }
 
     // Update order status
-    const updatedOrder = await queries.order.updateOrderStatus(orderId, status, notes);
+    const updatedOrder = await queries.order.updateOrderStatus(orderId!, status, notes);
 
     // Update kitchen load if order is completed or cancelled
     if (status === 'served' || status === 'cancelled') {
@@ -398,17 +362,17 @@ router.patch(
     }
 
     // Get updated complete order data
-    const completeOrder = await queries.order.getOrderById(orderId);
+    const completeOrder = await queries.order.getOrderById(orderId!);
 
     // Broadcast status update to restaurant
-    broadcastOrderUpdate(currentOrder.order.restaurantId, 'order_status_update', {
+    broadcastOrderUpdate(currentOrder.order.restaurantId, WS_EVENTS.ORDER_STATUS_UPDATE, {
       orderId,
       status,
       order: completeOrder,
     });
 
     // Broadcast to customer
-    broadcastOrderUpdate(`customer_${currentOrder.order.customerTelegramId}`, 'order_status_update', {
+    broadcastOrderUpdate(`${CUSTOMER_ROOM_PREFIX}${currentOrder.order.customerTelegramId}`, WS_EVENTS.ORDER_STATUS_UPDATE, {
       orderId,
       status,
       order: completeOrder,
@@ -460,25 +424,15 @@ router.patch(
 router.get(
   '/restaurant/:restaurantId',
   authStaffMiddleware,
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
-  validateQuery(schemas.OrderSearch.omit({ restaurantId: true })),
+  validateParams(validators.Id.transform((id: ID) => ({ restaurantId: id }))),
+  validateQuery(validators.OrderSearch.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
     const { status, page, limit } = req.query as any;
 
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Invalid restaurant ID"
-      });
-    }
-
     // Check if staff has access to this restaurant
     if (req.user!.restaurantId !== restaurantId) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({
-        success: false,
-        error: 'Access denied to this restaurant',
-      });
+      throw new AccessDeniedError('Access denied to this restaurant');
     }
 
     logInfo('Fetching restaurant orders', { restaurantId, status });
@@ -487,7 +441,7 @@ router.get(
     const pagination = { page: page || 1, limit: limit || 20 };
 
     const orders = await queries.order.getOrdersByRestaurantAndStatus(
-      restaurantId,
+      restaurantId!,
       statusArray,
       pagination
     );
@@ -517,20 +471,13 @@ router.get(
  */
 router.get(
   '/restaurant/:restaurantId/active',
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.Id.transform((id: ID) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Invalid restaurant ID"
-      });
-    }
-
     logInfo('Fetching active kitchen orders', { restaurantId });
 
-    const activeOrders = await queries.order.getActiveOrdersForKitchen(restaurantId);
+    const activeOrders = await queries.order.getActiveOrdersForKitchen(restaurantId!);
 
     // Group orders by order ID for better organization
     const ordersMap = new Map();

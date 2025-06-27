@@ -15,8 +15,9 @@ import {
 import { Minus, Plus, Clock, X } from 'lucide-react';
 import { MenuItem, MenuItemVariant, SpiceLevel } from '@dine-now/shared';
 import { useCartStore } from '@/store';
-import { getDefaultVariant, getVariantPrice, formatVariantName, getSizeDisplayName } from '@/lib/api';
+import { getDefaultVariant, getVariantPrice, formatVariantName } from '@/helpers';
 import toast from 'react-hot-toast';
+import { Locale } from '@/i18n/types';
 
 interface MenuItemModalProps {
   item: MenuItem & { variants: MenuItemVariant[]; defaultVariant?: MenuItemVariant };
@@ -192,7 +193,7 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="text-[--tg-theme-text-color] font-medium">
-                      {formatVariantName(variant, locale) || getSizeDisplayName(variant.size, locale)}
+                      {formatVariantName(variant, locale as Locale) || t(variant.size)}
                     </span>
                     {variant.isDefault && (
                       <Badge className="text-xs bg-[--tg-theme-link-color] text-white px-2 py-1 rounded">

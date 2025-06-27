@@ -1,3 +1,4 @@
+import { ENVIRONMENT } from '@dine-now/shared';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -21,9 +22,10 @@ export interface AppConfig {
   enableMetrics: boolean;
 }
 
+const nodeEnv = process.env.NODE_ENV || ENVIRONMENT.DEVELOPMENT;
 export const config: AppConfig = {
   port: parseInt(process.env.PORT || '3001'),
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv: nodeEnv,
   corsOrigin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
   uploadPath: process.env.UPLOAD_PATH || path.join(process.cwd(), 'uploads'),
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '5242880'), // 5MB
@@ -34,7 +36,7 @@ export const config: AppConfig = {
   jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   logLevel: process.env.LOG_LEVEL || 'info',
-  enableSwagger: process.env.ENABLE_SWAGGER === 'true' || process.env.NODE_ENV === 'development',
+  enableSwagger: process.env.ENABLE_SWAGGER === 'true' || nodeEnv === ENVIRONMENT.DEVELOPMENT,
   enableMetrics: process.env.ENABLE_METRICS === 'true',
 };
 
@@ -44,7 +46,7 @@ export const validateConfig = () => {
 
   const missing = required.filter(key => !process.env[key]);
   
-  if (missing.length > 0 && config.nodeEnv === 'production') {
+  if (missing.length > 0 && config.nodeEnv === ENVIRONMENT.PRODUCTION) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 

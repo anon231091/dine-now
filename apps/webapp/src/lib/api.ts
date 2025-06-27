@@ -5,6 +5,7 @@ import { retrieveRawInitData } from '@telegram-apps/sdk-react';
 import toast from 'react-hot-toast';
 
 import { useWebSocketStore, useOrdersStore } from '@/store';
+import { WS_EVENTS } from '@dine-now/shared';
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -19,11 +20,10 @@ const createApiClient = (): AxiosInstance => {
     },
   });
 
-  // Request interceptor to add auth token
+  // Request interceptor to add initData in auth header 
   client.interceptors.request.use(
     (config) => {
       const initDataRaw = retrieveRawInitData();
-      console.log("url: ", config.baseURL, config.url);
       config.headers.Authorization = `tma ${initDataRaw}`;
       return config;
     },
@@ -295,7 +295,7 @@ export const useWebSocket = () => {
       addMessage(message);
       
       // Handle specific message types
-      if (message.type === 'order_status_update') {
+      if (message.type === WS_EVENTS.ORDER_STATUS_UPDATE) {
         useOrdersStore.getState().updateOrderStatus(
           message.data.orderId,
           message.data.status
@@ -319,38 +319,4 @@ export const useWebSocket = () => {
       ws.close();
     };
   }, [setConnected, addMessage]);
-};
-
-// Helper functions for variants
-export const getDefaultVariant = (item: any) => {
-  if (!item?.variants?.length) return null;
-  return item.variants.find((v: any) => v.isDefault) || item.variants[0];
-};
-
-export const getVariantPrice = (variant: any) => {
-  return typeof variant?.price === 'number' ? variant.price : parseFloat(variant?.price || '0');
-};
-
-export const formatVariantName = (variant: any, locale: string = 'en') => {
-  if (locale === 'km' && variant?.nameKh) {
-    return variant.nameKh;
-  }
-  return variant?.name || variant?.size || 'Regular';
-};
-
-export const getSizeDisplayName = (size: string, locale: string = 'en') => {
-  const sizeNames = {
-    en: {
-      small: 'Small',
-      regular: 'Regular', 
-      large: 'Large'
-    },
-    km: {
-      small: 'តូច',
-      regular: 'ធម្មតា',
-      large: 'ធំ'
-    }
-  };
-  
-  return sizeNames[locale as keyof typeof sizeNames]?.[size as keyof typeof sizeNames.en] || size;
 };

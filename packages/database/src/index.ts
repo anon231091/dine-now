@@ -10,6 +10,9 @@ export * from './seed';
 // Export queries helper functions
 export * from './queries';
 
+// Export validators
+export * from './validators';
+
 // Re-export commonly used items
 export {
   restaurants,
@@ -37,6 +40,11 @@ export {
   reseedDatabase,
   seedFunctions,
 } from './seed';
+
+export {
+  validators,
+  validateSchema,
+} from './validators';
 
 // Export types for external use
 export type { DatabaseConfig } from './config';

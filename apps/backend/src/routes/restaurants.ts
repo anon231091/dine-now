@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
-import { queries } from '@dine-now/database';
-import { schemas, HTTP_STATUS } from '@dine-now/shared';
+import { queries, validators } from '@dine-now/database';
+import { HTTP_STATUS, NotFoundError } from '@dine-now/shared';
 import { 
   asyncHandler, 
   validateParams,
@@ -102,26 +102,16 @@ router.get(
  */
 router.get(
   '/:restaurantId',
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined restaurantId"
-      });
-    }
-
     logInfo('Fetching restaurant details', { restaurantId });
 
-    const restaurant = await queries.restaurant.getRestaurantById(restaurantId);
+    const restaurant = await queries.restaurant.getRestaurantById(restaurantId!);
 
     if (!restaurant) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        error: 'Restaurant not found',
-      });
+      throw new NotFoundError('Restaurant not found');
     }
 
     return res.status(HTTP_STATUS.OK).json({
@@ -149,20 +139,13 @@ router.get(
  */
 router.get(
   '/:restaurantId/tables',
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined restaurantId"
-      });
-    }
-
     logInfo('Fetching restaurant tables', { restaurantId });
 
-    const tables = await queries.table.getTablesByRestaurant(restaurantId);
+    const tables = await queries.table.getTablesByRestaurant(restaurantId!);
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -192,26 +175,16 @@ router.get(
  */
 router.get(
   '/table/:tableId',
-  validateParams(schemas.Id.transform((id) => ({ tableId: id }))),
+  validateParams(validators.Id.transform((id) => ({ tableId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { tableId } = req.params;
 
-    if (!tableId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: 'invalid table ID',
-      });
-    }
-
     logInfo('Fetching table by ID', { tableId });
 
-    const tableData = await queries.table.getTableById(tableId);
+    const tableData = await queries.table.getTableById(tableId!);
 
     if (!tableData) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        error: 'Table not found or inactive',
-      });
+      throw new NotFoundError('Table not found or inactive');
     }
 
     return res.status(HTTP_STATUS.OK).json({
@@ -242,27 +215,20 @@ router.get(
  */
 router.get(
   '/:restaurantId/kitchen-status',
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
-
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined restaurantId"
-      });
-    }
 
     logInfo('Fetching kitchen status', { restaurantId });
 
     // Get current kitchen load
-    const kitchenLoad = await queries.kitchen.getKitchenLoad(restaurantId);
+    const kitchenLoad = await queries.kitchen.getKitchenLoad(restaurantId!);
     
     // Calculate real-time kitchen load
-    const calculatedLoad = await queries.kitchen.calculateKitchenLoad(restaurantId);
+    const calculatedLoad = await queries.kitchen.calculateKitchenLoad(restaurantId!);
     
     // Get active orders for more context
-    const activeOrders = await queries.order.getActiveOrdersForKitchen(restaurantId);
+    const activeOrders = await queries.order.getActiveOrdersForKitchen(restaurantId!);
     
     // Group active orders by status
     const ordersByStatus = activeOrders.reduce((acc, row) => {
@@ -322,18 +288,11 @@ router.get(
  */
 router.get(
   '/:restaurantId/analytics',
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
-  validateQuery(schemas.AnalyticsQuery.omit({ restaurantId: true })),
+  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateQuery(validators.AnalyticsQuery.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
     const { dateFrom, dateTo } = req.query as any;
-
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined restaurantId"
-      });
-    }
 
     logInfo('Fetching restaurant analytics', { restaurantId, dateFrom, dateTo });
 
@@ -342,14 +301,14 @@ router.get(
 
     // Get order statistics
     const orderStats = await queries.analytics.getOrderStats(
-      restaurantId,
+      restaurantId!,
       dateFromObj,
       dateToObj
     );
 
     // Get popular menu items
     const popularItems = await queries.analytics.getPopularMenuItems(
-      restaurantId,
+      restaurantId!,
       dateFromObj,
       dateToObj,
       10
@@ -358,7 +317,7 @@ router.get(
     // Get hourly distribution for today
     const today = new Date();
     const hourlyDistribution = await queries.analytics.getHourlyOrderDistribution(
-      restaurantId,
+      restaurantId!,
       today
     );
 

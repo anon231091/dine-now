@@ -51,25 +51,6 @@ export const restaurantQueries = {
 
 // Table queries
 export const tableQueries = {
-  // Get table by QR code
-  getTableByQRCode: async (qrCode: string) => {
-    const db = getDatabase();
-    const result = await db
-      .select({
-        table: schema.tables,
-        restaurant: schema.restaurants,
-      })
-      .from(schema.tables)
-      .innerJoin(schema.restaurants, eq(schema.tables.restaurantId, schema.restaurants.id))
-      .where(and(
-        eq(schema.tables.qrCode, qrCode),
-        eq(schema.tables.isActive, true),
-        eq(schema.restaurants.isActive, true)
-      ))
-      .limit(1);
-    return result[0] || null;
-  },
-
   // Get table by ID
   getTableById: async (id: string) => {
     const db = getDatabase();

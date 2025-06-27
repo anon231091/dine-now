@@ -87,7 +87,7 @@ importers:
         specifier: ^8.14.2
         version: 8.18.2
       zod:
-        specifier: ^3.22.4
+        specifier: ^3.25.1
         version: 3.25.67
     devDependencies:
       '@types/bcrypt':
@@ -272,7 +272,7 @@ importers:
         specifier: ^8.16.1
         version: 8.16.2
       zod:
-        specifier: ^3.25.67
+        specifier: ^3.25.1
         version: 3.25.67
     devDependencies:
       '@types/jest':
@@ -310,10 +310,6 @@ importers:
         version: 5.8.3
 
   packages/shared:
-    dependencies:
-      zod:
-        specifier: ^3.22.4
-        version: 3.25.67
     devDependencies:
       '@types/jest':
         specifier: ^29.5.8

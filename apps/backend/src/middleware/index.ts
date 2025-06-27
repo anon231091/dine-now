@@ -2,12 +2,17 @@ import { Request, Response, NextFunction } from 'express';
 import { validate, parse, SignatureInvalidError, SignatureMissingError } from '@telegram-apps/init-data-node';
 import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
-import { ZodError } from 'zod';
+import { ZodError } from 'zod/v4';
 import { 
   AppError, 
-  ValidationError as SharedValidationError,
   HTTP_STATUS,
-  ERROR_MESSAGES 
+  ERROR_MESSAGES,
+  ENVIRONMENT,
+  UnauthorizedError,
+  NotFoundError,
+  UnprocessableError,
+  UserType,
+  ID,
 } from '@dine-now/shared';
 import { queries } from '@dine-now/database';
 import config from '../config';
@@ -16,19 +21,15 @@ import { logError, logWarning } from '../utils/logger';
 // Extended Request interface
 export interface AuthenticatedRequest extends Request {
   user?: {
-    type: 'customer' | 'staff';
+    type: UserType;
     telegramId: string;
     firstName: string;
     lastName: string | undefined;
     username: string | undefined;
     // Staff-specific properties
-    id?: string;
+    id?: ID;
     role?: string;
-    restaurantId?: string;
-  };
-  restaurant?: {
-    id: string;
-    name: string;
+    restaurantId?: ID;
   };
 }
 
@@ -53,60 +54,37 @@ export const errorHandler = (
       success: false,
       error: error.message,
     });
-  }
-
-  if (error instanceof SharedValidationError || error instanceof ZodError) {
+  } else if (error instanceof ZodError) {
     res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
-      error: 'Validation failed',
-      details: error instanceof ZodError ? error.errors : error.message,
+      error: ERROR_MESSAGES.VALIDATION_ERROR,
+      details: error.issues
     });
-  }
-
-  if (error instanceof SignatureMissingError || error instanceof SignatureInvalidError) {
+  } else if (error instanceof SignatureMissingError || error instanceof SignatureInvalidError) {
     res.status(HTTP_STATUS.UNAUTHORIZED).json({
       success: false,
-      error: ERROR_MESSAGES.UNAUTHORIZED,
+      error: error.name,
+      details: error.message
     });
-  }
-
-  if (error.name === 'JsonWebTokenError' || error.message === 'Unauthorized') {
-    res.status(HTTP_STATUS.UNAUTHORIZED).json({
-      success: false,
-      error: ERROR_MESSAGES.UNAUTHORIZED,
-    });
-  }
-
-  if (error.name === 'MulterError') {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      success: false,
-      error: 'File upload error',
-      details: error.message,
-    });
-  }
-
-  // Database errors
-  if (error.message.includes('duplicate key')) {
+  } else if (error.message.includes('duplicate key')) {
     res.status(HTTP_STATUS.CONFLICT).json({
       success: false,
-      error: 'Duplicate entry',
+      error: ERROR_MESSAGES.CONFLICT_ERROR,
     });
-  }
-
-  if (error.message.includes('foreign key')) {
+  } else if (error.message.includes('foreign key')) {
     res.status(HTTP_STATUS.BAD_REQUEST).json({
       success: false,
-      error: 'Invalid reference',
+      error: ERROR_MESSAGES.REFERENCE_ERROR,
+    });
+  } else {
+    // Default error
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      error: config.nodeEnv === ENVIRONMENT.PRODUCTION 
+        ? ERROR_MESSAGES.SERVER_ERROR 
+        : error.message,
     });
   }
-
-  // Default error
-  res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-    success: false,
-    error: config.nodeEnv === 'production' 
-      ? ERROR_MESSAGES.SERVER_ERROR 
-      : error.message,
-  });
 };
 
 // Not found middleware
@@ -124,7 +102,7 @@ export const createRateLimit = (windowMs?: number, max?: number) => {
     max: max || config.rateLimitMax,
     message: {
       success: false,
-      error: 'Too many requests, please try again later',
+      error: ERROR_MESSAGES.RATE_LIMITED,
     },
     standardHeaders: true,
     legacyHeaders: false,
@@ -151,7 +129,7 @@ export const authMiddleware = async (
     case 'Bearer':
       return authStaffMiddleware(req, res, next);
     default:
-      throw new Error('Unauthorized');
+      throw new UnprocessableError(`Unsupported authorization method: ${authType}`);
   }
 };
 
@@ -175,7 +153,7 @@ export const authGeneralMiddleware = async (
 
         const { user } = parse(authData);
         if (!user) {
-          throw new Error('No user data in init data');
+          throw new NotFoundError('No user data in init data');
         }
 
         req.user = {
@@ -183,7 +161,7 @@ export const authGeneralMiddleware = async (
           firstName: user.first_name,
           lastName: user.last_name,
           username: user.username,
-          type: 'customer',
+          type: UserType.General,
         };
 
         return next();
@@ -191,7 +169,7 @@ export const authGeneralMiddleware = async (
         return next(error);
       }
     default:
-      throw new Error('Unauthorized');
+      throw new UnauthorizedError();
   }
 }
 
@@ -214,7 +192,7 @@ export const authStaffMiddleware = async (
         // For staff, verify they still exist and are active
         const staffData = await queries.staff.getStaffByTelegramId(BigInt(decoded.telegramId));
         if (!staffData || !staffData.staff.isActive) {
-          throw new Error('Staff not found or inactive');
+          throw new NotFoundError('Staff not found or inactive');
         }
         
         req.user = {
@@ -222,15 +200,10 @@ export const authStaffMiddleware = async (
           firstName: staffData.staff.firstName,
           lastName: staffData.staff.lastName ?? undefined,
           username: staffData.staff.username ?? undefined,
-          type: 'staff',
+          type: UserType.Staff,
           id: staffData.staff.id,
           role: staffData.staff.role,
           restaurantId: staffData.staff.restaurantId,
-        };
-
-        req.restaurant = {
-          id: staffData.restaurant.id,
-          name: staffData.restaurant.name,
         };
 
         return next();
@@ -238,7 +211,7 @@ export const authStaffMiddleware = async (
         return next(error);
       }
     default:
-      throw new Error('Unauthorized');
+      throw new UnauthorizedError(`Access denied`);
   }
 };
 
@@ -317,8 +290,8 @@ export const validateQuery = (schema: any) => {
 export const validateParams = (schema: any) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     try {
-      // const validatedData = schema.parse(req.params);
-      // req.params = validatedData;
+      const validatedData = schema.parse(req.params);
+      req.params = validatedData;
       next();
     } catch (error) {
       next(error);
@@ -352,7 +325,7 @@ export const corsOptions = {
 
 // Health check middleware
 export const healthCheck = (_req: Request, res: Response) => {
-  res.status(200).json({
+  res.status(HTTP_STATUS.OK).json({
     success: true,
     message: 'Service is healthy',
     timestamp: new Date().toISOString(),

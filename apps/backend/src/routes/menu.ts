@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
-import { queries } from '@dine-now/database';
-import { schemas, HTTP_STATUS } from '@dine-now/shared';
+import { queries, validators } from '@dine-now/database';
+import { HTTP_STATUS, NotFoundError } from '@dine-now/shared';
 import { 
   asyncHandler, 
   validateQuery, 
@@ -108,21 +108,14 @@ const router: Router = Router();
  */
 router.get(
   '/:restaurantId',
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
-
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined restaurantId"
-      });
-    }
 
     logInfo('Fetching menu with variants', { restaurantId });
 
     // Get menu data from database (now includes variants)
-    const menuData = await queries.menu.getMenuByRestaurant(restaurantId);
+    const menuData = await queries.menu.getMenuByRestaurant(restaurantId!);
 
     // Group items by category
     const menuByCategory = new Map();
@@ -217,18 +210,11 @@ router.get(
  */
 router.get(
   '/:restaurantId/search',
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
-  validateQuery(schemas.MenuSearch.omit({ restaurantId: true })),
+  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
+  validateQuery(validators.MenuSearch.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
     const searchParams = req.query as any;
-
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined restaurantId"
-      });
-    }
 
     logInfo('Searching menu items with variants', { restaurantId, searchParams });
 
@@ -264,26 +250,16 @@ router.get(
  */
 router.get(
   '/item/:itemId',
-  validateParams(schemas.Id.transform((id) => ({ itemId: id }))),
+  validateParams(validators.Id.transform((id) => ({ itemId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { itemId } = req.params;
-
-    if (!itemId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined itemId"
-      });
-    }
     
     logInfo('Fetching menu item with variants', { itemId });
 
-    const itemData = await queries.menu.getMenuItemById(itemId);
+    const itemData = await queries.menu.getMenuItemById(itemId!);
 
     if (!itemData) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        error: 'Menu item not found',
-      });
+      throw new NotFoundError('Menu item not found');
     }
 
     return res.status(HTTP_STATUS.OK).json({
@@ -317,26 +293,16 @@ router.get(
  */
 router.get(
   '/variant/:variantId',
-  validateParams(schemas.Id.transform((id) => ({ variantId: id }))),
+  validateParams(validators.Id.transform((id) => ({ variantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { variantId } = req.params;
 
-    if (!variantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined variantId"
-      });
-    }
-
     logInfo('Fetching menu item variant', { variantId });
 
-    const variantData = await queries.menu.getVariantById(variantId);
+    const variantData = await queries.menu.getVariantById(variantId!);
 
     if (!variantData) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        error: 'Menu item variant not found',
-      });
+      throw new NotFoundError('Menu item variant not found')
     }
 
     return res.status(HTTP_STATUS.OK).json({
@@ -368,20 +334,13 @@ router.get(
  */
 router.get(
   '/:restaurantId/categories',
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
 
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined restaurantId"
-      });
-    }
-
     logInfo('Fetching menu categories', { restaurantId });
 
-    const menuData = await queries.menu.getMenuByRestaurant(restaurantId);
+    const menuData = await queries.menu.getMenuByRestaurant(restaurantId!);
 
     // Extract unique categories and sort
     const categories = Array.from(
@@ -426,18 +385,11 @@ router.get(
  */
 router.get(
   '/:restaurantId/popular',
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
     const limit = parseInt(req.query.limit as string) || 10;
     const days = parseInt(req.query.days as string) || 30;
-
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined restaurantId"
-      });
-    }
 
     logInfo('Fetching popular menu items with variants', { restaurantId, limit, days });
 
@@ -446,7 +398,7 @@ router.get(
     const dateTo = new Date();
 
     const popularItems = await queries.analytics.getPopularMenuItems(
-      restaurantId,
+      restaurantId!,
       dateFrom,
       dateTo,
       limit

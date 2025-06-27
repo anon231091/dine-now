@@ -1,5 +1,6 @@
 import winston from 'winston';
 import config from '../config';
+import { ENVIRONMENT } from '@dine-now/shared';
 
 // Custom log format
 const logFormat = winston.format.combine(
@@ -38,7 +39,7 @@ export const logger = winston.createLogger({
 });
 
 // Add file transports in production
-if (config.nodeEnv === 'production') {
+if (config.nodeEnv === ENVIRONMENT.PRODUCTION) {
   logger.add(
     new winston.transports.File({
       filename: 'logs/error.log',

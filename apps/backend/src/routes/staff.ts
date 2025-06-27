@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
-import { queries } from '@dine-now/database';
-import { schemas, HTTP_STATUS } from '@dine-now/shared';
+import { queries, validators } from '@dine-now/database';
+import { HTTP_STATUS, NotFoundError } from '@dine-now/shared';
 import { 
   asyncHandler, 
   validateParams,
@@ -16,21 +16,14 @@ router.get(
   '/restaurant/:restaurantId',
   authStaffMiddleware,
   requireRole(['admin', 'manager']),
-  validateParams(schemas.Id.transform((id) => ({ restaurantId: id }))),
+  validateParams(validators.Id.transform((id) => ({ restaurantId: id }))),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;
     const { role } = req.query as any;
 
-    if (!restaurantId) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: "Undefined restaurantId"
-      });
-    }
-
     logInfo('Fetching restaurant staff', { restaurantId, role });
 
-    const staff = await queries.staff.getStaffByRestaurantAndRole(restaurantId, role);
+    const staff = await queries.staff.getStaffByRestaurantAndRole(restaurantId!, role);
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -50,10 +43,7 @@ router.get(
     const staffData = await queries.staff.getStaffByTelegramId(BigInt(telegramId));
 
     if (!staffData) {
-      return res.status(HTTP_STATUS.NOT_FOUND).json({
-        success: false,
-        error: 'Staff profile not found',
-      });
+      throw new NotFoundError('Staff profile not found');
     }
 
     return res.status(HTTP_STATUS.OK).json({

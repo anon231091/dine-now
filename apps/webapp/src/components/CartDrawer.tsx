@@ -14,9 +14,10 @@ import { Minus, Plus, Trash2, ShoppingBag, Clock } from 'lucide-react';
 import { useCartStore, useRestaurantStore } from '@/store';
 import { useCreateOrder } from '@/lib/api';
 import { getSpiceLevelText } from '@dine-now/shared';
-import { formatVariantName, getSizeDisplayName } from '@/lib/api';
+import { formatVariantName } from '@/helpers';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Locale } from '@/i18n/types';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   };
 
   const getVariantDisplayName = (variant: any) => {
-    return formatVariantName(variant, locale) || getSizeDisplayName(variant.size, locale);
+    return formatVariantName(variant, locale as Locale) || t(variant.size);
   };
 
   if (items.length === 0) {

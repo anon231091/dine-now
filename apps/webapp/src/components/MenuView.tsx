@@ -19,7 +19,7 @@ import { ShoppingCart, Plus, Clock, Search } from 'lucide-react';
 import { useMenu, useKitchenStatus } from '@/lib/api';
 import { useRestaurantStore, useCartStore, useUIStore } from '@/store';
 import { MenuItem, MenuCategory, MenuItemVariant } from '@dine-now/shared';
-import { getDefaultVariant, getVariantPrice, getSizeDisplayName } from '@/lib/api';
+import { getDefaultVariant, getVariantPrice } from '@/helpers';
 import { MenuItemModal } from './MenuItemModal';
 import { CartDrawer } from './CartDrawer';
 import { Page } from './Page';
@@ -297,7 +297,7 @@ function MenuItemCard({
                   {/* Show available sizes */}
                   {item.variants && item.variants.length > 1 && (
                     <Caption level="1" className="text-[--tg-theme-hint-color] text-xs">
-                      {availableVariants.map(v => getSizeDisplayName(v.size, locale)).join(', ')}
+                      {availableVariants.map(v => t(v.size)).join(', ')}
                     </Caption>
                   )}
                 </div>

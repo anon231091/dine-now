@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button, Card, Placeholder, Spinner, Title } from '@telegram-apps/telegram-ui';
 import { initData, useSignal } from '@telegram-apps/sdk-react';
@@ -16,11 +16,13 @@ import { Page } from '@/components/Page';
 export default function HomePage() {
   const t = useTranslations('HomePage');
   const router = useRouter();
-  const tableId = useSignal(initData.startParam);
+  const startParam = useSignal(initData.startParam);
+  const searchParams = useSearchParams();
   const user = useSignal(initData.user);
   const { currentRestaurant } = useRestaurantStore();
   const { setCurrentPage } = useUIStore();
   
+  const tableId = startParam || searchParams.get('tgWebAppStartParam');
   const { 
     data: restaurantData, 
     isLoading: loadingRestaurant,

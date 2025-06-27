@@ -66,13 +66,11 @@ export const tables = pgTable('tables', {
   id: uuid('id').primaryKey().defaultRandom(),
   restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
   number: varchar('number', { length: 10 }).notNull(),
-  qrCode: varchar('qr_code', { length: 100 }).notNull().unique(),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   restaurantTableUnique: unique('restaurant_table_unique').on(table.restaurantId, table.number),
-  qrCodeIdx: index('tables_qr_code_idx').on(table.qrCode),
   restaurantIdx: index('tables_restaurant_idx').on(table.restaurantId),
 }));
 

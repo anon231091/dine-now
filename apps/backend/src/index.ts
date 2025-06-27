@@ -24,6 +24,7 @@ import apiRoutes from './routes';
 
 // Import WebSocket
 import { initializeWebSocket } from './websocket';
+import { ENVIRONMENT, HTTP_STATUS } from '@dine-now/shared';
 
 // Create Express app
 const app: Express = express();
@@ -88,7 +89,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Logging middleware
-if (config.nodeEnv === 'development') {
+if (config.nodeEnv === ENVIRONMENT.DEVELOPMENT) {
   app.use(morgan('dev'));
 } else {
   app.use(morgan('combined'));
@@ -108,13 +109,13 @@ app.get('/health/db', async (_req, res) => {
     const dbHealth = await checkDatabaseHealth();
 
     if (dbHealth.healthy) {
-      res.status(200).json({
+      res.status(HTTP_STATUS.OK).json({
         success: true,
         message: 'Database is healthy',
         timestamp: new Date().toISOString(),
       });
     } else {
-      res.status(503).json({
+      res.status(HTTP_STATUS.SERVICE_UNAVAILABLE).json({
         success: false,
         message: 'Database is unhealthy',
         error: dbHealth.error,
@@ -122,7 +123,7 @@ app.get('/health/db', async (_req, res) => {
       });
     }
   } catch (error) {
-    res.status(503).json({
+    res.status(HTTP_STATUS.SERVICE_UNAVAILABLE).json({
       success: false,
       message: 'Database health check failed',
       error: (error as Error).message,
@@ -134,7 +135,7 @@ app.get('/health/db', async (_req, res) => {
 // WebSocket status endpoint
 app.get('/health/ws', (_req, res) => {
   const stats = wsServer.getStats();
-  res.status(200).json({
+  res.status(HTTP_STATUS.OK).json({
     success: true,
     message: 'WebSocket server is healthy',
     stats,
@@ -143,7 +144,7 @@ app.get('/health/ws', (_req, res) => {
 });
 
 // API Documentation with Swagger
-// if (config.enableSwagger) {
+if (config.enableSwagger) {
   const specs = swaggerJsdoc(swaggerOptions);
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
     explorer: true,
@@ -156,10 +157,7 @@ app.get('/health/ws', (_req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(specs);
   });
-// }
-
-// API Routes
-app.use('/api', apiRoutes);
+}
 
 // API info endpoint
 app.get('/api', (_req, res) => {
@@ -174,13 +172,16 @@ app.get('/api', (_req, res) => {
       databaseHealth: '/health/db',
       websocketHealth: '/health/ws',
       documentation: config.enableSwagger ? '/api-docs' : null,
-      authentication: '/api/auth',
       restaurants: '/api/restaurants',
       menu: '/api/menu',
       orders: '/api/orders',
+      kitchen: '/api/kitchen'
     },
   });
 });
+
+// API Routes
+app.use('/api', apiRoutes);
 
 // Global error handler
 app.use(errorHandler);

@@ -1,6 +1,13 @@
+import { ERROR_MESSAGES, HTTP_STATUS } from "../constants";
+
 // Base types
 export type ID = string;
 export type Timestamp = Date;
+
+export enum UserType {
+  General = 'general',
+  Staff = 'staff'
+};
 
 // Restaurant structure
 export interface Restaurant {
@@ -257,38 +264,6 @@ export interface NewOrderEvent extends WebSocketEvent {
   data: OrderWithDetails;
 }
 
-// Authentication types
-export interface CustomerAuthData {
-  telegramId: bigint;
-  firstName: string;
-  lastName?: string;
-  username?: string;
-  type: 'customer';
-}
-
-export interface StaffAuthData {
-  id: ID;
-  telegramId: bigint;
-  firstName: string;
-  lastName?: string;
-  username?: string;
-  role: StaffRole;
-  restaurantId: ID;
-  type: 'staff';
-  restaurant: {
-    id: ID;
-    name: string;
-  };
-}
-
-export type AuthData = CustomerAuthData | StaffAuthData;
-
-export interface AuthResponse {
-  token: string;
-  user: AuthData;
-  expiresIn: string;
-}
-
 // Error types
 export class AppError extends Error {
   public statusCode: number;
@@ -303,20 +278,38 @@ export class AppError extends Error {
   }
 }
 
-export class ValidationError extends AppError {
-  constructor(message: string) {
-    super(message, 400);
-  }
-}
-
 export class NotFoundError extends AppError {
-  constructor(message: string) {
-    super(message, 404);
+  constructor(message?: string) {
+    super(message || ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
   }
 }
 
 export class UnauthorizedError extends AppError {
-  constructor(message: string) {
-    super(message, 401);
+  constructor(message?: string) {
+    super(message || ERROR_MESSAGES.UNAUTHORIZED, HTTP_STATUS.UNAUTHORIZED);
+  }
+}
+
+export class UnprocessableError extends AppError {
+  constructor(message?: string) {
+    super(message || ERROR_MESSAGES.UNPROCESSABLE, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+}
+
+export class BadRequestError extends AppError {
+  constructor(message?: string) {
+    super(message || ERROR_MESSAGES.VALIDATION_ERROR, HTTP_STATUS.BAD_REQUEST);
+  }
+}
+
+export class ServerError extends AppError {
+  constructor(message?: string) {
+    super(message || ERROR_MESSAGES.SERVER_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
+  }
+}
+
+export class AccessDeniedError extends AppError {
+  constructor(message?: string) {
+    super(message || ERROR_MESSAGES.ACCESS_DENIED, HTTP_STATUS.FORBIDDEN);
   }
 }
