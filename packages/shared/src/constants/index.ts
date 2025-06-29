@@ -69,6 +69,15 @@ export const BUSINESS_RULES = {
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
 } as const;
 
+// Service permissions
+export const SERVICE_PERMISSIONS = [
+  'orders:read',
+  'orders:update',
+  'kitchen:read',
+  'kitchen:update',
+  'restaurants:read'
+];
+
 // Status Messages
 export const STATUS_MESSAGES = {
   ORDER_PLACED: 'Your order has been placed successfully!',

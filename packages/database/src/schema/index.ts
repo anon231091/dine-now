@@ -11,6 +11,7 @@ import {
   index,
   unique,
   bigint,
+  json
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -217,6 +218,29 @@ export const kitchenLoads = pgTable('kitchen_loads', {
   lastUpdatedIdx: index('kitchen_loads_last_updated_idx').on(table.lastUpdated),
 }));
 
+// Telegram groups 
+export const telegramGroups = pgTable('telegram_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  chatId: bigint('chat_id', { mode: 'bigint' }).notNull().unique(),
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
+  name: varchar('name', { length: 255 }).notNull(),
+  language: varchar('language', { length: 2 }).notNull().default('km'),
+  isActive: boolean('is_active').notNull().default(true),
+  settings: json('settings').$type<{
+    notifyNewOrders: boolean;
+    notifyStatusUpdates: boolean;
+    quietHours?: { start: string; end: string };
+  }>().default({
+    notifyNewOrders: true,
+    notifyStatusUpdates: true
+  }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  restaurantIdx: index('telegram_groups_restaurant_idx').on(table.restaurantId),
+  chatIdx: index('telegram_groups_chat_idx').on(table.chatId),
+}));
+
 // Relations
 export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   tables: many(tables),
@@ -305,6 +329,13 @@ export const kitchenLoadsRelations = relations(kitchenLoads, ({ one }) => ({
   }),
 }));
 
+export const telegramGroupsRelations = relations(telegramGroups, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [telegramGroups.restaurantId],
+    references: [restaurants.id],
+  }),
+}));
+
 // Export all tables for migrations
 export const schema = {
   restaurants,
@@ -316,6 +347,7 @@ export const schema = {
   orders,
   orderItems,
   kitchenLoads,
+  telegramGroups,
   // Relations
   restaurantsRelations,
   tablesRelations,
@@ -326,4 +358,5 @@ export const schema = {
   ordersRelations,
   orderItemsRelations,
   kitchenLoadsRelations,
+  telegramGroupsRelations,
 };

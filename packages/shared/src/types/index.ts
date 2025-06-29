@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, HTTP_STATUS } from "../constants";
+import { ERROR_MESSAGES, HTTP_STATUS, SERVICE_PERMISSIONS } from "../constants";
 
 // Base types
 export type ID = string;
@@ -8,6 +8,13 @@ export enum UserType {
   General = 'general',
   Staff = 'staff'
 };
+
+export enum ServiceType {
+  Bot = 'bot',
+  External = 'external',
+};
+
+export type ServicePermissions = (typeof SERVICE_PERMISSIONS)[number];
 
 // Restaurant structure
 export interface Restaurant {
@@ -241,6 +248,32 @@ export interface OrderWithDetails extends Order {
     menuItem: MenuItem;
     variant: MenuItemVariant;
   })[];
+}
+
+export interface BotConfig {
+  token: string;
+  apiUrl: string;
+  serviceToken: string;
+  webhookUrl?: string;
+}
+
+export interface TelegramGroup {
+  id: number;
+  restaurantId: string;
+  name: string;
+  isActive: boolean;
+}
+
+export interface BotCommand {
+  command: string;
+  description: string;
+  descriptionKh: string;
+}
+
+export interface ServiceTokenPayload {
+  type: ServiceType;
+  permissions: ServicePermissions[];
+  restaurantId?: ID;
 }
 
 // WebSocket events

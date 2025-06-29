@@ -729,6 +729,42 @@ export const analyticsQueries = {
   },
 };
 
+// packages/database/src/queries/bot.ts
+export const botQueries = {
+  getGroupByTelegramId: async (chatId: bigint) => {
+    const db = getDatabase();
+    const result = await db
+      .select()
+      .from(schema.telegramGroups)
+      .where(eq(schema.telegramGroups.chatId, chatId))
+      .limit(1);
+    return result[0] || null;
+  },
+
+  getGroupsByRestaurant: async (restaurantId: string) => {
+    const db = getDatabase();
+    const result = await db
+      .select()
+      .from(schema.telegramGroups)
+      .where(eq(schema.telegramGroups.restaurantId, restaurantId));
+    return result || null;
+  },
+
+  registerGroup: async (data: {
+    chatId: bigint;
+    restaurantId: string;
+    name: string;
+    language?: string;
+  }) => {
+    const db = getDatabase();
+    const [group] = await db
+      .insert(schema.telegramGroups)
+      .values(data)
+      .returning();
+    return group;
+  },
+};
+
 // Export all query modules
 export const queries = {
   restaurant: restaurantQueries,
@@ -738,4 +774,5 @@ export const queries = {
   staff: staffQueries,
   kitchen: kitchenQueries,
   analytics: analyticsQueries,
+  bot: botQueries,
 };

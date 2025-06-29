@@ -14,7 +14,9 @@ export interface AppConfig {
   rateLimitWindowMs: number;
   rateLimitMax: number;
   telegramBotToken: string;
+  telegramBotServiceToken: string;
   telegramWebhookUrl: string;
+  telegramWebhookSecret: string; 
   jwtSecret: string;
   jwtExpiresIn: string;
   logLevel: string;
@@ -32,7 +34,9 @@ export const config: AppConfig = {
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
   rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100'),
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
-  telegramWebhookUrl: process.env.TELEGRAM_WEBHOOK_URL || '',
+  telegramBotServiceToken: process.env.TELEGRAM_BOT_SERVICE_TOKEN || '',
+  telegramWebhookUrl: process.env.TELEGRAM_WEBHOOK_URL || 'http://localhost:3002/webhook',
+  telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
   jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   logLevel: process.env.LOG_LEVEL || 'info',

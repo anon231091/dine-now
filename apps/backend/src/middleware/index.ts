@@ -13,6 +13,9 @@ import {
   UnprocessableError,
   UserType,
   ID,
+  ServiceType,
+  ServiceTokenPayload,
+  SERVICE_PERMISSIONS,
 } from '@dine-now/shared';
 import { queries, validateSchema } from '@dine-now/database';
 import config from '../config';
@@ -31,6 +34,7 @@ export interface AuthenticatedRequest extends Request {
     role?: string;
     restaurantId?: ID;
   };
+  service?: ServiceTokenPayload,
 }
 
 // Error handling middleware
@@ -172,6 +176,34 @@ export const authGeneralMiddleware = async (
       throw new UnauthorizedError();
   }
 }
+
+export const authServiceMiddleware = async (
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction
+) => {
+  const [authType, token] = (req.headers.authorization || '').split(' ');
+  
+  if (authType !== 'Bearer' || !token) {
+    return next(new UnauthorizedError());
+  }
+
+  // Check if it's a service token
+  const serviceTokens = {
+    [config.telegramBotServiceToken]: {
+      type: ServiceType.Bot,
+      permissions: SERVICE_PERMISSIONS,
+    }
+  };
+
+  if (serviceTokens[token]) {
+    req.service = serviceTokens[token];
+    return next();
+  }
+
+  // Otherwise, continue with normal JWT auth
+  return next(new UnauthorizedError());
+};
 
 /**
  * Middleware which authorizes the external client for staff user
