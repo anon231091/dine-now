@@ -11,8 +11,6 @@ import {
   index,
   unique,
   bigint,
-  json,
-  primaryKey
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 

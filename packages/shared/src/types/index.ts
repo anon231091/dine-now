@@ -9,81 +9,18 @@ export enum UserType {
   Staff = 'staff'
 };
 
-export enum ServiceType {
-  Bot = 'bot',
-  External = 'external',
-};
-
-export type ServicePermissions = (typeof SERVICE_PERMISSIONS)[number];
-
-// Restaurant structure
-export interface Restaurant {
-  id: ID;
-  name: string;
-  nameKh?: string;
-  description?: string;
-  descriptionKh?: string;
-  address: string;
-  phoneNumber: string;
-  isActive: boolean;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+// Staff roles with clear hierarchy
+export enum StaffRole {
+  ADMIN = 'admin',            // Restaurant owner
+  MANAGER = 'manager',        // Restaurant manager
+  KITCHEN = 'kitchen',        // Kitchen staff
+  SERVICE = 'service'         // Service staff
 }
 
-export interface Table {
-  id: ID;
-  restaurantId: ID;
-  number: string;
-  qrCode: string;
-  isActive: boolean;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-
-// Menu types
-export interface MenuCategory {
-  id: ID;
-  restaurantId: ID;
-  name: string;
-  nameKh?: string; // Khmer translation
-  description?: string;
-  descriptionKh?: string;
-  sortOrder: number;
-  isActive: boolean;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-
-export interface MenuItem {
-  id: ID;
-  categoryId: ID;
-  restaurantId: ID;
-  name: string;
-  nameKh?: string;
-  description?: string;
-  descriptionKh?: string;
-  imageUrl?: string;
-  preparationTimeMinutes: number;
-  isAvailable: boolean;
-  isActive: boolean;
-  sortOrder: number;
-  variants?: MenuItemVariant[]; // Available size variants
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-
-export interface MenuItemVariant {
-  id: ID;
-  menuItemId: ID;
-  size: ItemSize;
-  name?: string; // Optional custom name for variant
-  nameKh?: string;
-  price: number;
-  isAvailable: boolean;
-  isDefault: boolean;
-  sortOrder: number;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+export enum GroupType {
+  MANAGEMENT = 'management',
+  KITCHEN = 'kitchen',
+  SERVICE = 'service'
 }
 
 // Order types
@@ -109,31 +46,87 @@ export enum ItemSize {
   LARGE = 'large'
 }
 
-export enum Currency {
-  USD = 'USD',
-  KHR = 'KHR'
+// Restaurant structure
+export interface Restaurant {
+  id: ID;
+  name: string;
+  nameKh?: string;
+  description?: string;
+  descriptionKh?: string;
+  address: string;
+  phoneNumber: string;
+  isActive: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
-export interface OrderItem {
+export interface Table {
   id: ID;
-  orderId: ID;
-  menuItemId: ID;
-  variantId: ID; // References specific variant
-  quantity: number;
-  spiceLevel?: SpiceLevel;
-  notes?: string;
-  unitPrice: number; // Price from variant at time of order
-  subtotal: number;
-  menuItem?: MenuItem; // Populated when needed
-  variant?: MenuItemVariant; // Populated when needed
+  restaurantId: ID;
+  number: string;
+  isActive: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Staff interface
+export interface Staff {
+  id: ID;
+  restaurantId: ID;
+  telegramId: bigint
+  role: StaffRole;
+  isActive: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Telegram groups
+export interface TelegramGroup {
+  id: ID;
+  chatId: bigint;
+  restaurantId: ID;
+  groupType: GroupType;
+  isActive: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Menu types
+export interface MenuCategory {
+  id: ID;
+  restaurantId: ID;
+  name: string;
+  nameKh?: string;
+  description?: string;
+  descriptionKh?: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface MenuItem {
+  id: ID;
+  categoryId: ID;
+  restaurantId: ID;
+  name: string;
+  nameKh?: string;
+  description?: string;
+  descriptionKh?: string;
+  imageUrl?: string;
+  preparationTimeMinutes: number;
+  isAvailable: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  variants?: MenuItemVariant[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 
 export interface Order {
   id: ID;
-  customerTelegramId: bigint; // Direct reference to Telegram user ID
-  customerName: string; // Display name for orders
+  customerTelegramId: bigint;
+  customerName: string;
   restaurantId: ID;
   tableId: ID;
   orderNumber: string;
@@ -143,14 +136,32 @@ export interface Order {
   estimatedPreparationMinutes: number;
   actualPreparationMinutes?: number;
   notes?: string;
+  placedByStaffId?: ID; // If placed by staff on behalf of customer
   orderItems: OrderItem[];
-  table?: Table; // Populated when needed
+  table?: Table;
   restaurant?: Restaurant;
+  placedByStaff?: Staff;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   confirmedAt?: Timestamp;
   readyAt?: Timestamp;
   servedAt?: Timestamp;
+}
+
+export interface OrderItem {
+  id: ID;
+  orderId: ID;
+  menuItemId: ID;
+  variantId: ID;
+  quantity: number;
+  spiceLevel?: SpiceLevel;
+  notes?: string;
+  unitPrice: number;
+  subtotal: number;
+  menuItem?: MenuItem;
+  variant?: MenuItemVariant;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 // Kitchen load tracking
@@ -160,36 +171,62 @@ export interface KitchenLoad {
   currentOrders: number;
   averagePreparationTime: number;
   lastUpdated: Timestamp;
+  createdAt: Timestamp;
 }
 
-// Staff types
-export interface Staff {
+export interface MenuItemVariant {
   id: ID;
-  restaurantId: ID;
-  telegramId: bigint;
-  firstName: string;
-  lastName?: string;
-  username?: string;
-  role: StaffRole;
-  isActive: boolean;
+  menuItemId: ID;
+  size: ItemSize;
+  name?: string;
+  nameKh?: string;
+  price: number;
+  isAvailable: boolean;
+  isDefault: boolean;
+  sortOrder: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 
-export enum StaffRole {
-  ADMIN = 'admin',
-  MANAGER = 'manager',
-  KITCHEN = 'kitchen',
-  SERVICE = 'service'
-}
-
-// Telegram user interface (for authentication)
-export interface TelegramUser {
-  id: bigint;
-  firstName: string;
-  lastName?: string;
-  username?: string;
-}
+// Role permissions mapping
+export const ROLE_PERMISSIONS = {
+  ['super-admin']: [
+    'restaurants:create',
+    'restaurants:read',
+    'restaurants:update', 
+    'restaurants:delete',
+    'staff:assign_admin',
+    'system:manage'
+  ],
+  [StaffRole.ADMIN]: [
+    'restaurant:manage',
+    'menu:manage',
+    'tables:manage',
+    'staff:assign',
+    'orders:read',
+    'analytics:read',
+    'telegram_groups:manage'
+  ],
+  [StaffRole.MANAGER]: [
+    'restaurant:read',
+    'menu:manage',
+    'tables:manage',
+    'orders:read',
+    'analytics:read',
+    'telegram_groups:read'
+  ],
+  [StaffRole.KITCHEN]: [
+    'orders:read',
+    'orders:update_status',
+    'menu:toggle_availability'
+  ],
+  [StaffRole.SERVICE]: [
+    'orders:read',
+    'orders:update_status',
+    'menu:toggle_availability',
+    'orders:place_for_customer'
+  ]
+} as const;
 
 // API Response types
 export interface ApiResponse<T = any> {
@@ -214,11 +251,32 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
 }
 
 // DTOs (Data Transfer Objects)
+export interface CreateRestaurantDto {
+  name: string;
+  nameKh?: string;
+  description?: string;
+  descriptionKh?: string;
+  address: string;
+  phoneNumber: string;
+  adminTelegramId?: bigint; // Optional - can be assigned later
+}
+
+export interface AssignRestaurantAdminDto {
+  restaurantId: ID;
+  telegramId: bigint;
+}
+
+export interface CreateStaffDto {
+  restaurantId: ID;
+  telegramId: bigint;
+  role: StaffRole;
+}
+
 export interface CreateOrderDto {
   tableId: ID;
   orderItems: {
     menuItemId: ID;
-    variantId: ID; // Must specify which variant
+    variantId: ID;
     quantity: number;
     spiceLevel?: SpiceLevel;
     notes?: string;
@@ -229,9 +287,21 @@ export interface CreateOrderDto {
 export interface UpdateOrderStatusDto {
   orderId: ID;
   status: OrderStatus;
-  notes?: string;
 }
 
+export interface CreateTelegramGroupDto {
+  chatId: bigint;
+  restaurantId: ID;
+  groupType: GroupType;
+}
+
+export interface UpdateMenuItemAvailabilityDto {
+  menuItemId: ID;
+  isAvailable: boolean;
+  variantId?: ID; // Optional - to toggle specific variant
+}
+
+// Extended types
 export interface MenuItemWithCategory extends MenuItem {
   category: MenuCategory;
 }
@@ -250,30 +320,13 @@ export interface OrderWithDetails extends Order {
   })[];
 }
 
-export interface BotConfig {
-  token: string;
-  apiUrl: string;
-  serviceToken: string;
-  webhookUrl?: string;
+export interface StaffWithRestaurant extends Staff {
+  restaurant: Restaurant;
 }
 
-export interface TelegramGroup {
-  id: number;
-  restaurantId: string;
-  name: string;
-  isActive: boolean;
-}
-
-export interface BotCommand {
-  command: string;
-  description: string;
-  descriptionKh: string;
-}
-
-export interface ServiceTokenPayload {
-  type: ServiceType;
-  permissions: ServicePermissions[];
-  restaurantId?: ID;
+export interface RestaurantWithStaff extends Restaurant {
+  staff: Staff[];
+  telegramGroups?: TelegramGroup[];
 }
 
 // WebSocket events
@@ -297,7 +350,41 @@ export interface NewOrderEvent extends WebSocketEvent {
   data: OrderWithDetails;
 }
 
-// Error types
+export interface StaffActionEvent extends WebSocketEvent {
+  type: 'staff_action';
+  data: {
+    action: 'menu_toggle' | 'order_placed' | 'status_update';
+    staffId: ID;
+    staffName: string;
+    details: any;
+  };
+}
+
+// Analytics types
+export interface OrderStats {
+  totalOrders: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+  cancelledOrders: number;
+  completedOrders: number;
+}
+
+export interface PopularItem {
+  menuItem: MenuItem;
+  variant: MenuItemVariant;
+  totalQuantity: number;
+  totalRevenue: number;
+  orderCount: number;
+}
+
+export interface KitchenEfficiency {
+  averagePreparationTime: number;
+  onTimeOrders: number;
+  lateOrders: number;
+  currentLoad: number;
+}
+
+// Error types (keeping the same as before)
 export class AppError extends Error {
   public statusCode: number;
   public isOperational: boolean;
@@ -344,5 +431,11 @@ export class ServerError extends AppError {
 export class AccessDeniedError extends AppError {
   constructor(message?: string) {
     super(message || ERROR_MESSAGES.ACCESS_DENIED, HTTP_STATUS.FORBIDDEN);
+  }
+}
+
+export class InsufficientPermissionsError extends AppError {
+  constructor(message?: string) {
+    super(message || 'Insufficient permissions for this action', HTTP_STATUS.FORBIDDEN);
   }
 }
