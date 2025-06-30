@@ -11,7 +11,8 @@ import {
   index,
   unique,
   bigint,
-  json
+  json,
+  primaryKey
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -45,6 +46,28 @@ export const staffRoleEnum = pgEnum('staff_role', [
   'service'
 ]);
 
+export const telegramGroupEnum = pgEnum('telegram_group_type', [
+  'management',
+  'kitchen',
+  'service'
+]);
+
+// Staff
+export const staff = pgTable('staff', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
+  telegramId: bigint('telegram_id', { mode: 'bigint' }).notNull(),
+  role: staffRoleEnum('role').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  restaurantTelegramUnique: unique('restaurant_telegram_unique').on(table.restaurantId, table.telegramId),
+  restaurantIdx: index('staff_restaurant_idx').on(table.restaurantId),
+  telegramIdx: index('staff_telegram_idx').on(table.telegramId),
+  roleIdx: index('staff_role_idx').on(table.role),
+}));
+
 // Restaurants table
 export const restaurants = pgTable('restaurants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -52,14 +75,29 @@ export const restaurants = pgTable('restaurants', {
   nameKh: varchar('name_kh', { length: 100 }),
   description: text('description'),
   descriptionKh: text('description_kh'),
-  address: text('address').notNull(),
-  phoneNumber: varchar('phone_number', { length: 20 }).notNull(),
+  address: text('address'),
+  phoneNumber: varchar('phone_number', { length: 20 }),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   nameIdx: index('restaurants_name_idx').on(table.name),
   phoneIdx: index('restaurants_phone_idx').on(table.phoneNumber),
+}));
+
+// Telegram groups 
+export const telegramGroups = pgTable('telegram_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  chatId: bigint('chat_id', { mode: 'bigint' }).notNull().unique(),
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
+  groupType: telegramGroupEnum('group_type').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  restaurantTelegramUnique: unique('restaurant_telegram_group_unique').on(table.restaurantId, table.groupType),
+  restaurantIdx: index('telegram_groups_restaurant_idx').on(table.restaurantId),
+  chatIdx: index('telegram_groups_chat_idx').on(table.chatId),
 }));
 
 // Tables
@@ -73,25 +111,6 @@ export const tables = pgTable('tables', {
 }, (table) => ({
   restaurantTableUnique: unique('restaurant_table_unique').on(table.restaurantId, table.number),
   restaurantIdx: index('tables_restaurant_idx').on(table.restaurantId),
-}));
-
-// Staff
-export const staff = pgTable('staff', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
-  telegramId: bigint('telegram_id', { mode: 'bigint' }).notNull(),
-  firstName: varchar('first_name', { length: 50 }).notNull(),
-  lastName: varchar('last_name', { length: 50 }),
-  username: varchar('username', { length: 50 }),
-  role: staffRoleEnum('role').notNull(),
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => ({
-  restaurantTelegramUnique: unique('restaurant_telegram_unique').on(table.restaurantId, table.telegramId),
-  restaurantIdx: index('staff_restaurant_idx').on(table.restaurantId),
-  telegramIdx: index('staff_telegram_idx').on(table.telegramId),
-  roleIdx: index('staff_role_idx').on(table.role),
 }));
 
 // Menu categories
@@ -218,37 +237,22 @@ export const kitchenLoads = pgTable('kitchen_loads', {
   lastUpdatedIdx: index('kitchen_loads_last_updated_idx').on(table.lastUpdated),
 }));
 
-// Telegram groups 
-export const telegramGroups = pgTable('telegram_groups', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  chatId: bigint('chat_id', { mode: 'bigint' }).notNull().unique(),
-  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
-  name: varchar('name', { length: 255 }).notNull(),
-  language: varchar('language', { length: 2 }).notNull().default('km'),
-  isActive: boolean('is_active').notNull().default(true),
-  settings: json('settings').$type<{
-    notifyNewOrders: boolean;
-    notifyStatusUpdates: boolean;
-    quietHours?: { start: string; end: string };
-  }>().default({
-    notifyNewOrders: true,
-    notifyStatusUpdates: true
-  }),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => ({
-  restaurantIdx: index('telegram_groups_restaurant_idx').on(table.restaurantId),
-  chatIdx: index('telegram_groups_chat_idx').on(table.chatId),
-}));
-
 // Relations
 export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   tables: many(tables),
   staff: many(staff),
+  telegramGroups: many(telegramGroups),
   menuCategories: many(menuCategories),
   menuItems: many(menuItems),
   orders: many(orders),
   kitchenLoads: many(kitchenLoads),
+}));
+
+export const telegramGroupsRelations = relations(telegramGroups, ({ one }) => ({
+  restaurant: one(restaurants, {
+    fields: [telegramGroups.restaurantId],
+    references: [restaurants.id],
+  }),
 }));
 
 export const tablesRelations = relations(tables, ({ one, many }) => ({
@@ -329,34 +333,27 @@ export const kitchenLoadsRelations = relations(kitchenLoads, ({ one }) => ({
   }),
 }));
 
-export const telegramGroupsRelations = relations(telegramGroups, ({ one }) => ({
-  restaurant: one(restaurants, {
-    fields: [telegramGroups.restaurantId],
-    references: [restaurants.id],
-  }),
-}));
-
 // Export all tables for migrations
 export const schema = {
-  restaurants,
-  tables,
   staff,
+  restaurants,
+  telegramGroups,
+  tables,
   menuCategories,
   menuItems,
   menuItemVariants,
   orders,
   orderItems,
   kitchenLoads,
-  telegramGroups,
   // Relations
   restaurantsRelations,
   tablesRelations,
   staffRelations,
+  telegramGroupsRelations,
   menuCategoriesRelations,
   menuItemsRelations,
   menuItemVariantsRelations,
   ordersRelations,
   orderItemsRelations,
   kitchenLoadsRelations,
-  telegramGroupsRelations,
 };

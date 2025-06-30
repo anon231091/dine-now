@@ -242,9 +242,9 @@ export interface MenuItemWithVariants extends MenuItem {
 }
 
 export interface OrderWithDetails extends Order {
-  table: Table;
   restaurant: Restaurant;
-  orderItems: (OrderItem & { 
+  table: Table;
+  orderItems: (OrderItem & {
     menuItem: MenuItem;
     variant: MenuItemVariant;
   })[];

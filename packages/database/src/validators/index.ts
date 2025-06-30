@@ -161,6 +161,26 @@ const AnalyticsQuerySchema = z.object({
   granularity: z.enum(['hour', 'day', 'week', 'month']).default('day'),
 });
 
+// Telegram Group schemas
+const CreateTelegramGroupSchema = z.object({
+  chatId: z.union([z.string(), z.number()]).transform(val => String(val)), // Accept both formats
+  restaurantId: IdSchema,
+  name: z.string().min(1).max(255),
+  language: z.enum(['en', 'km']).optional().default('km'),
+  settings: z.object({
+    notifyNewOrders: z.boolean().default(true),
+    notifyStatusUpdates: z.boolean().default(true),
+    quietHours: z.object({
+      start: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
+      end: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
+    }).optional(),
+  }).optional(),
+});
+
+const UpdateTelegramGroupSchema = CreateTelegramGroupSchema.partial().omit({ 
+  chatId: true 
+});
+
 // Validation helper functions
 export const validatePhoneNumber = (phone: string): boolean => {
   return PhoneNumberSchema.safeParse(phone).success;
@@ -247,4 +267,7 @@ export const validators = {
   
   ImageUpload: ImageUploadSchema,
   AnalyticsQuery: AnalyticsQuerySchema,
+
+  CreateTelegramGroup: CreateTelegramGroupSchema,
+  UpdateTelegramGroup: UpdateTelegramGroupSchema,
 } as const;
