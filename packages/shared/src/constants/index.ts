@@ -91,6 +91,7 @@ export const BUSINESS_RULES = {
   MAX_ITEMS_PER_ORDER: 50,
   MAX_ORDER_VALUE: 1000,
   MIN_ORDER_VALUE: 1,
+  MAX_PER_ITEM: 50,
   
   // Time limits (in minutes)
   ORDER_TIMEOUT: 30,

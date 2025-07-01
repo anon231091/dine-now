@@ -2,233 +2,54 @@ import { getDatabase } from '../config';
 import * as schema from '../schema';
 import { eq } from 'drizzle-orm';
 
-// Sample data for seeding
+// Sample data for comprehensive seeding
 const sampleData = {
+  // 3 different restaurants
   restaurants: [
     {
       name: 'Khmer Kitchen',
       nameKh: 'ផ្ទះបាយខ្មែរ',
-      description: 'Authentic Cambodian cuisine with modern twist',
-      descriptionKh: 'អាហារខ្មែរប្រពៃណីជាមួយនឹងការកែប្រែទំនើប',
+      description: 'Authentic Cambodian cuisine with modern presentation',
+      descriptionKh: 'អាហារខ្មែរដើមត្រូវតាមបែបបុរាណជាមួយនឹងការបង្ហាញទំនើប',
       address: '123 Street 51, Daun Penh, Phnom Penh',
       phoneNumber: '+855 12 345 678',
     },
     {
-      name: 'Mekong Cafe',
-      nameKh: 'កាហ្វេមេគង្គ',
-      description: 'Riverside dining with international and local dishes',
-      descriptionKh: 'ភោជនីយដ្ឋានមាត់ទន្លេជាមួយនឹងម្ហូបអន្តរជាតិនិងក្នុងស្រុក',
+      name: 'Mekong Riverside',
+      nameKh: 'មាត់ទន្លេមេគង្គ',
+      description: 'Riverside dining with international and local fusion',
+      descriptionKh: 'ភោជនីយដ្ឋានមាត់ទន្លេជាមួយម្ហូបអន្តរជាតិនិងក្នុងស្រុក',
       address: '456 Sisowath Quay, Phnom Penh',
       phoneNumber: '+855 23 987 654',
+    },
+    {
+      name: 'Siem Reap Garden',
+      nameKh: 'សួនសៀមរាប',
+      description: 'Traditional Khmer dishes in a garden setting',
+      descriptionKh: 'ម្ហូបខ្មែរប្រពៃណីនៅក្នុងបរិយាកាសសួន',
+      address: '789 Pub Street, Siem Reap',
+      phoneNumber: '+855 63 456 789',
     }
   ],
 
-  menuCategories: [
-    // Khmer Kitchen categories
-    {
-      name: 'Appetizers',
-      nameKh: 'ម្ហូបកាត់ដំណើរ',
-      description: 'Traditional Cambodian starters',
-      descriptionKh: 'ម្ហូបបើកចំណង់ប្រពៃណីខ្មែរ',
-    },
-    {
-      name: 'Main Dishes',
-      nameKh: 'ម្ហូបធំ',
-      description: 'Authentic Khmer main courses',
-      descriptionKh: 'ម្ហូបធំខ្មែរដើម',
-    },
-    {
-      name: 'Desserts',
-      nameKh: 'បង្អែម',
-      description: 'Traditional Cambodian sweets',
-      descriptionKh: 'បង្អែមប្រពៃណីកម្ពុជា',
-    },
-    {
-      name: 'Beverages',
-      nameKh: 'ភេសជ្ជៈ',
-      description: 'Local and international drinks',
-      descriptionKh: 'ភេសជ្ជៈក្នុងស្រុកនិងអន្តរជាតិ',
-    },
-    // Mekong Cafe categories
-    {
-      name: 'Western Food',
-      nameKh: 'អាហារលោកខាងលិច',
-      description: 'International cuisine favorites',
-      descriptionKh: 'អាហារអន្តរជាតិដែលពេញនិយម',
-    },
-    {
-      name: 'Asian Fusion',
-      nameKh: 'អាហារអាស៊ីបញ្ចូលគ្នា',
-      description: 'Modern Asian fusion dishes',
-      descriptionKh: 'ម្ហូបអាស៊ីបញ្ចូលគ្នាទំនើប',
-    }
-  ],
-
-  menuItems: [
-    // Appetizers - Khmer Kitchen
-    {
-      name: 'Fresh Spring Rolls',
-      nameKh: 'នំបញ្ចុកសាច់',
-      description: 'Fresh vegetables and herbs wrapped in rice paper, served with peanut sauce',
-      descriptionKh: 'បន្លែស្រស់និងស្លឹកជីរុំក្នុងកាកេតបាយ បញ្ជាជាមួយទឹកជ្រលក់សណ្តែកដី',
-      preparationTimeMinutes: 10,
-    },
-    {
-      name: 'Cambodian Fish Cakes',
-      nameKh: 'នំត្រីចៀន',
-      description: 'Deep-fried fish cakes with cucumber relish',
-      descriptionKh: 'នំត្រីចៀនក្រុបជាមួយត្រសក់ជូរ',
-      preparationTimeMinutes: 15,
-    },
-    
-    // Main Dishes - Khmer Kitchen
-    {
-      name: 'Amok Trey',
-      nameKh: 'អាម៉ុកត្រី',
-      description: 'Traditional steamed fish curry in banana leaf',
-      descriptionKh: 'ការីត្រីចំហុយដាក់ស្លឹកចេកប្រពៃណី',
-      preparationTimeMinutes: 25,
-    },
-    {
-      name: 'Beef Lok Lak',
-      nameKh: 'លុកឡាក់សាច់គោ',
-      description: 'Cambodian-style stir-fried beef with lime pepper sauce',
-      descriptionKh: 'សាច់គោឆាបែបខ្មែរជាមួយទឹកជ្រលក់ម្រេចក្រូច',
-      preparationTimeMinutes: 20,
-    },
-    {
-      name: 'Khmer Red Curry',
-      nameKh: 'ក្រមុំខ្មែរ',
-      description: 'Rich coconut curry with chicken and vegetables',
-      descriptionKh: 'ក្រមុំទឹកដូងមាន់និងបន្លែ',
-      preparationTimeMinutes: 30,
-    },
-
-    // Desserts - Khmer Kitchen  
-    {
-      name: 'Num Ansom',
-      nameKh: 'នំអន្សម',
-      description: 'Traditional sticky rice cake with banana',
-      descriptionKh: 'នំអន្សមបាយដំណើបប្រពៃណីជាមួយចេក',
-      preparationTimeMinutes: 5,
-    },
-    {
-      name: 'Baked Custard',
-      nameKh: 'សង់ខ្យាដុត',
-      description: 'Cambodian-style baked custard with palm sugar',
-      descriptionKh: 'សង់ខ្យាដុតបែបខ្មែរជាមួយស្ករត្នោត',
-      preparationTimeMinutes: 8,
-    },
-
-    // Beverages - Both restaurants
-    {
-      name: 'Iced Coffee',
-      nameKh: 'កាហ្វេទឹកកក',
-      description: 'Traditional Cambodian iced coffee with condensed milk',
-      descriptionKh: 'កាហ្វេទឹកកកខ្មែរប្រពៃណីជាមួយទឹកដោះកោ',
-      preparationTimeMinutes: 5,
-    },
-    {
-      name: 'Sugar Cane Juice',
-      nameKh: 'ទឹកអំពៅ',
-      description: 'Fresh sugar cane juice with ice',
-      descriptionKh: 'ទឹកអំពៅស្រស់ជាមួយទឹកកក',
-      preparationTimeMinutes: 3,
-    },
-
-    // Western Food - Mekong Cafe
-    {
-      name: 'Grilled Salmon',
-      nameKh: 'ត្រីសាលម៉ុនអាំង',
-      description: 'Grilled salmon with herbs and lemon butter sauce',
-      descriptionKh: 'ត្រីសាលម៉ុនអាំងជាមួយស្លឹកជីរនិងទឹកជ្រលក់ប៊ឺ',
-      preparationTimeMinutes: 20,
-    },
-    {
-      name: 'Chicken Burger',
-      nameKh: 'ប៊ឺហ្គ័រមាន់',
-      description: 'Grilled chicken burger with fries',
-      descriptionKh: 'ប៊ឺហ្គ័រមាន់អាំងជាមួយដំឡូងបំពង',
-      preparationTimeMinutes: 15,
-    },
-
-    // Asian Fusion - Mekong Cafe
-    {
-      name: 'Pad Thai',
-      nameKh: 'ផេតថៃ',
-      description: 'Thai-style stir-fried noodles with shrimp',
-      descriptionKh: 'មីឆាបែបថៃជាមួយបង្គា',
-      preparationTimeMinutes: 18,
-    },
-    {
-      name: 'Vietnamese Pho',
-      nameKh: 'ស៊ុបភូ',
-      description: 'Vietnamese beef noodle soup with herbs',
-      descriptionKh: 'ស៊ុបមីសាច់គោវៀតណាមជាមួយស្លឹកជីរ',
-      preparationTimeMinutes: 22,
-    }
-  ],
-
-  // Variant templates - will be applied to each menu item
-  variantTemplates: [
-    {
-      size: 'small',
-      name: 'Small',
-      nameKh: 'តូច',
-      priceMultiplier: 0.8,
-      isDefault: false,
-      sortOrder: 1,
-    },
-    {
-      size: 'regular',
-      name: 'Regular',
-      nameKh: 'ធម្មតា',
-      priceMultiplier: 1.0,
-      isDefault: true,
-      sortOrder: 2,
-    },
-    {
-      size: 'large',
-      name: 'Large',
-      nameKh: 'ធំ',
-      priceMultiplier: 1.3,
-      isDefault: false,
-      sortOrder: 3,
-    }
-  ],
-
-  // Base prices for menu items (will be used with multipliers for variants)
-  basePrices: [
-    4.50, // Fresh Spring Rolls
-    6.00, // Cambodian Fish Cakes
-    12.00, // Amok Trey
-    15.00, // Beef Lok Lak
-    13.50, // Khmer Red Curry
-    3.50, // Num Ansom
-    4.00, // Baked Custard
-    2.50, // Iced Coffee
-    2.00, // Sugar Cane Juice
-    18.00, // Grilled Salmon
-    8.50, // Chicken Burger
-    11.00, // Pad Thai
-    9.50, // Vietnamese Pho
-  ],
-
+  // Staff for each restaurant
   staff: [
-    // Khmer Kitchen staff
+    // Khmer Kitchen Staff
     {
       telegramId: BigInt('111222333'),
-      firstName: 'Pich',
-      lastName: 'Sokha',
-      username: 'pich_kitchen',
+      firstName: 'Sophea',
+      lastName: 'Chan',
+      username: 'sophea_admin',
       role: 'admin' as const,
+      restaurantIndex: 0,
     },
     {
       telegramId: BigInt('444555666'),
-      firstName: 'Channa',
-      lastName: 'Vuth',
-      username: 'channa_chef',
+      firstName: 'Pisach',
+      lastName: 'Ouk',
+      username: 'pisach_chef',
       role: 'kitchen' as const,
+      restaurantIndex: 0,
     },
     {
       telegramId: BigInt('777888999'),
@@ -236,385 +57,639 @@ const sampleData = {
       lastName: 'Seng',
       username: 'dara_service',
       role: 'service' as const,
+      restaurantIndex: 0,
     },
-    // Mekong Cafe staff
+    
+    // Mekong Riverside Staff
     {
       telegramId: BigInt('111333555'),
       firstName: 'John',
       lastName: 'Wilson',
       username: 'john_manager',
       role: 'manager' as const,
+      restaurantIndex: 1,
     },
     {
       telegramId: BigInt('222444666'),
       firstName: 'Kimheng',
-      lastName: 'Ouk',
+      lastName: 'Pov',
       username: 'kimheng_kitchen',
       role: 'kitchen' as const,
+      restaurantIndex: 1,
+    },
+    {
+      telegramId: BigInt('333555777'),
+      firstName: 'Sreymom',
+      lastName: 'Lim',
+      username: 'sreymom_service',
+      role: 'service' as const,
+      restaurantIndex: 1,
+    },
+
+    // Siem Reap Garden Staff
+    {
+      telegramId: BigInt('444666888'),
+      firstName: 'Vibol',
+      lastName: 'Khiev',
+      username: 'vibol_admin',
+      role: 'admin' as const,
+      restaurantIndex: 2,
+    },
+    {
+      telegramId: BigInt('555777999'),
+      firstName: 'Channary',
+      lastName: 'Sok',
+      username: 'channary_chef',
+      role: 'kitchen' as const,
+      restaurantIndex: 2,
     }
   ],
 
-  // Sample Telegram customer IDs for creating sample orders
+  // Telegram groups for each restaurant
+  telegramGroups: [
+    // Khmer Kitchen Groups
+    {
+      chatId: BigInt('-1001234567890'),
+      groupType: 'management' as const,
+      restaurantIndex: 0,
+    },
+    {
+      chatId: BigInt('-1001234567891'),
+      groupType: 'kitchen' as const,
+      restaurantIndex: 0,
+    },
+    {
+      chatId: BigInt('-1001234567892'),
+      groupType: 'service' as const,
+      restaurantIndex: 0,
+    },
+
+    // Mekong Riverside Groups
+    {
+      chatId: BigInt('-1001987654321'),
+      groupType: 'management' as const,
+      restaurantIndex: 1,
+    },
+    {
+      chatId: BigInt('-1001987654322'),
+      groupType: 'kitchen' as const,
+      restaurantIndex: 1,
+    },
+
+    // Siem Reap Garden Groups
+    {
+      chatId: BigInt('-1001555666777'),
+      groupType: 'management' as const,
+      restaurantIndex: 2,
+    },
+    {
+      chatId: BigInt('-1001555666778'),
+      groupType: 'kitchen' as const,
+      restaurantIndex: 2,
+    }
+  ],
+
+  // Menu categories for each restaurant
+  menuCategories: [
+    // Khmer Kitchen Categories
+    {
+      name: 'Appetizers',
+      nameKh: 'ម្ហូបកាត់ដំណើរ',
+      description: 'Traditional Cambodian starters',
+      descriptionKh: 'ម្ហូបបើកចំណង់ប្រពៃណីខ្មែរ',
+      sortOrder: 1,
+      restaurantIndex: 0,
+    },
+    {
+      name: 'Soups',
+      nameKh: 'ស៊ុប',
+      description: 'Traditional Khmer soups',
+      descriptionKh: 'ស៊ុបខ្មែរប្រពៃណី',
+      sortOrder: 2,
+      restaurantIndex: 0,
+    },
+    {
+      name: 'Main Dishes',
+      nameKh: 'ម្ហូបធំ',
+      description: 'Authentic Khmer main courses',
+      descriptionKh: 'ម្ហូបធំខ្មែរដើម',
+      sortOrder: 3,
+      restaurantIndex: 0,
+    },
+    {
+      name: 'Rice & Noodles',
+      nameKh: 'បាយនិងមី',
+      description: 'Rice and noodle dishes',
+      descriptionKh: 'ម្ហូបបាយនិងមី',
+      sortOrder: 4,
+      restaurantIndex: 0,
+    },
+    {
+      name: 'Desserts',
+      nameKh: 'បង្អែម',
+      description: 'Traditional sweets',
+      descriptionKh: 'បង្អែមប្រពៃណី',
+      sortOrder: 5,
+      restaurantIndex: 0,
+    },
+    {
+      name: 'Beverages',
+      nameKh: 'ភេសជ្ជៈ',
+      description: 'Local and international drinks',
+      descriptionKh: 'ភេសជ្ជៈក្នុងស្រុកនិងអន្តរជាតិ',
+      sortOrder: 6,
+      restaurantIndex: 0,
+    },
+
+    // Mekong Riverside Categories
+    {
+      name: 'Western Appetizers',
+      nameKh: 'ម្ហូបកាត់ដំណើរលោកខាងលិច',
+      description: 'International starters',
+      descriptionKh: 'ម្ហូបបើកចំណង់អន្តរជាតិ',
+      sortOrder: 1,
+      restaurantIndex: 1,
+    },
+    {
+      name: 'Asian Fusion',
+      nameKh: 'អាហារអាស៊ីបញ្ចូលគ្នា',
+      description: 'Modern Asian fusion dishes',
+      descriptionKh: 'ម្ហូបអាស៊ីបញ្ចូលគ្នាទំនើប',
+      sortOrder: 2,
+      restaurantIndex: 1,
+    },
+    {
+      name: 'Seafood',
+      nameKh: 'អាហារសមុទ្រ',
+      description: 'Fresh seafood specialties',
+      descriptionKh: 'អាហារសមុទ្រស្រស់ពិសេស',
+      sortOrder: 3,
+      restaurantIndex: 1,
+    },
+    {
+      name: 'Beverages',
+      nameKh: 'ភេសជ្ជៈ',
+      description: 'Cocktails and drinks',
+      descriptionKh: 'កុកតែលនិងភេសជ្ជៈ',
+      sortOrder: 4,
+      restaurantIndex: 1,
+    },
+
+    // Siem Reap Garden Categories
+    {
+      name: 'Garden Salads',
+      nameKh: 'សាឡាត់សួន',
+      description: 'Fresh garden salads',
+      descriptionKh: 'សាឡាត់សួនស្រស់',
+      sortOrder: 1,
+      restaurantIndex: 2,
+    },
+    {
+      name: 'Traditional Khmer',
+      nameKh: 'ខ្មែរប្រពៃណី',
+      description: 'Heritage Cambodian recipes',
+      descriptionKh: 'រូបមន្តអាហារខ្មែរបេតិកភណ្ឌ',
+      sortOrder: 2,
+      restaurantIndex: 2,
+    },
+    {
+      name: 'Grilled Specialties',
+      nameKh: 'ម្ហូបអាំងពិសេស',
+      description: 'Garden grilled dishes',
+      descriptionKh: 'ម្ហូបអាំងក្នុងសួន',
+      sortOrder: 3,
+      restaurantIndex: 2,
+    }
+  ],
+
+  // Menu items with detailed descriptions
+  menuItems: [
+    // Khmer Kitchen Items
+    {
+      name: 'Fresh Spring Rolls',
+      nameKh: 'នំបញ្ចុកសាច់ស្រស់',
+      description: 'Fresh vegetables, herbs, and shrimp wrapped in rice paper, served with peanut dipping sauce',
+      descriptionKh: 'បន្លែស្រស់ ស្លឹកជីរ និងបង្គារុំក្នុងកាកេតបាយ បរិភោគជាមួយទឹកជ្រលក់សណ្តែកដី',
+      preparationTimeMinutes: 8,
+      categoryIndex: 0, // Appetizers
+      restaurantIndex: 0,
+      sortOrder: 1,
+    },
+    {
+      name: 'Fish Amok',
+      nameKh: 'អាម៉ុកត្រី',
+      description: 'Traditional steamed fish curry in banana leaf with coconut milk and kroeung paste',
+      descriptionKh: 'ការីត្រីចំហុយប្រពៃណីដាក់ស្លឹកចេកជាមួយទឹកដូងនិងគ្រឿងអាម៉ុក',
+      preparationTimeMinutes: 25,
+      categoryIndex: 2, // Main Dishes
+      restaurantIndex: 0,
+      sortOrder: 1,
+    },
+    {
+      name: 'Beef Lok Lak',
+      nameKh: 'លុកឡាក់សាច់គោ',
+      description: 'Cambodian-style stir-fried beef cubes with lime pepper sauce, served with rice',
+      descriptionKh: 'សាច់គោកូនភ្លោះឆាបែបខ្មែរជាមួយទឹកជ្រលក់ម្រេចក្រូច បរិភោគជាមួយបាយ',
+      preparationTimeMinutes: 15,
+      categoryIndex: 2, // Main Dishes
+      restaurantIndex: 0,
+      sortOrder: 2,
+    },
+    {
+      name: 'Khmer Red Curry',
+      nameKh: 'ក្រមុំខ្មែរ',
+      description: 'Rich coconut curry with chicken, eggplant, and green beans',
+      descriptionKh: 'ក្រមុំទឹកដូងជាមួយសាច់មាន់ ត្រសក់ និងសណ្តែកបារាំង',
+      preparationTimeMinutes: 20,
+      categoryIndex: 2, // Main Dishes
+      restaurantIndex: 0,
+      sortOrder: 3,
+    },
+    {
+      name: 'Pho Khmer',
+      nameKh: 'គុយទាវ',
+      description: 'Cambodian rice noodle soup with beef broth and herbs',
+      descriptionKh: 'ស៊ុបមីកុយទាវជាមួយសាច់គោនិងស្លឹកជីរ',
+      preparationTimeMinutes: 12,
+      categoryIndex: 3, // Rice & Noodles
+      restaurantIndex: 0,
+      sortOrder: 1,
+    },
+    {
+      name: 'Iced Coffee',
+      nameKh: 'កាហ្វេទឹកកក',
+      description: 'Traditional Cambodian iced coffee with condensed milk',
+      descriptionKh: 'កាហ្វេទឹកកកខ្មែរប្រពៃណីជាមួយទឹកដោះកោ',
+      preparationTimeMinutes: 3,
+      categoryIndex: 5, // Beverages
+      restaurantIndex: 0,
+      sortOrder: 1,
+    },
+
+    // Mekong Riverside Items
+    {
+      name: 'Grilled Prawns',
+      nameKh: 'បង្គាអាំង',
+      description: 'Fresh Mekong prawns grilled with herbs and garlic butter',
+      descriptionKh: 'បង្គាមេគង្គស្រស់អាំងជាមួយស្លឹកជីរនិងប៊ឺខ្ទឹម',
+      preparationTimeMinutes: 18,
+      categoryIndex: 8, // Seafood
+      restaurantIndex: 1,
+      sortOrder: 1,
+    },
+    {
+      name: 'Tom Yum Fusion',
+      nameKh: 'ទំយំបញ្ចូលគ្នា',
+      description: 'Thai-Khmer fusion soup with local river fish and herbs',
+      descriptionKh: 'ស៊ុបថៃ-ខ្មែរបញ្ចូលគ្នាជាមួយត្រីទន្លេនិងស្លឹកជីរ',
+      preparationTimeMinutes: 15,
+      categoryIndex: 7, // Asian Fusion
+      restaurantIndex: 1,
+      sortOrder: 1,
+    },
+    {
+      name: 'Mango Sticky Rice',
+      nameKh: 'ខាវអំពៅ',
+      description: 'Sweet sticky rice with fresh mango and coconut cream',
+      descriptionKh: 'បាយដំណើបផ្អែមជាមួយស្វាយស្រស់និងក្រមទឹកដូង',
+      preparationTimeMinutes: 10,
+      categoryIndex: 9, // Beverages (dessert drinks)
+      restaurantIndex: 1,
+      sortOrder: 2,
+    },
+
+    // Siem Reap Garden Items
+    {
+      name: 'Garden Fresh Salad',
+      nameKh: 'សាឡាត់សួនស្រស់',
+      description: 'Mixed organic greens with garden herbs and lime dressing',
+      descriptionKh: 'បន្លែបៃតងចម្រុះធម្មជាតិជាមួយស្លឹកជីរសួននិងទឹកជ្រលក់ក្រូចឆ្មារ',
+      preparationTimeMinutes: 5,
+      categoryIndex: 10, // Garden Salads
+      restaurantIndex: 2,
+      sortOrder: 1,
+    },
+    {
+      name: 'Heritage Amok',
+      nameKh: 'អាម៉ុកបេតិកភណ្ឌ',
+      description: 'Traditional recipe amok passed down through generations',
+      descriptionKh: 'រូបមន្តអាម៉ុកប្រពៃណីបានបក់បន្តពីជំនាន់មុន',
+      preparationTimeMinutes: 30,
+      categoryIndex: 11, // Traditional Khmer
+      restaurantIndex: 2,
+      sortOrder: 1,
+    }
+  ],
+
+  // Base prices for calculating variants
+  basePrices: [
+    6.50,  // Fresh Spring Rolls
+    15.00, // Fish Amok
+    18.00, // Beef Lok Lak
+    14.50, // Khmer Red Curry
+    8.50,  // Pho Khmer
+    3.50,  // Iced Coffee
+    22.00, // Grilled Prawns
+    12.00, // Tom Yum Fusion
+    7.50,  // Mango Sticky Rice
+    9.50,  // Garden Fresh Salad
+    16.50, // Heritage Amok
+  ],
+
+  // Variant templates with Khmer names
+  variantTemplates: [
+    {
+      size: 'small' as const,
+      name: 'Small',
+      nameKh: 'តូច',
+      priceMultiplier: 0.75,
+      isDefault: false,
+      sortOrder: 1,
+    },
+    {
+      size: 'regular' as const,
+      name: 'Regular',
+      nameKh: 'ធម្មតា',
+      priceMultiplier: 1.0,
+      isDefault: true,
+      sortOrder: 2,
+    },
+    {
+      size: 'large' as const,
+      name: 'Large',
+      nameKh: 'ធំ',
+      priceMultiplier: 1.35,
+      isDefault: false,
+      sortOrder: 3,
+    }
+  ],
+
+  // Sample customers (telegram IDs and names)
   sampleCustomers: [
     {
       telegramId: BigInt('123456789'),
-      name: 'Sophea Chan'
+      firstName: 'Sophea',
+      lastName: 'Chan',
+      username: 'sophea_customer'
     },
     {
       telegramId: BigInt('987654321'),
-      name: 'David Smith'
+      firstName: 'David',
+      lastName: 'Smith',
+      username: 'david_tourist'
     },
     {
       telegramId: BigInt('555666777'),
-      name: 'Sreypov Kem'
+      firstName: 'Sreypov',
+      lastName: 'Kem',
+      username: 'sreypov_local'
+    },
+    {
+      telegramId: BigInt('888999111'),
+      firstName: 'Marie',
+      lastName: 'Dubois',
+      username: 'marie_expat'
+    },
+    {
+      telegramId: BigInt('333444555'),
+      firstName: 'Pisach',
+      lastName: 'Lim',
+      username: 'pisach_businessman'
     }
   ]
 };
 
-// Seeding functions
-export const seedRestaurants = async () => {
-  const db = getDatabase();
-  
-  console.log('🏢 Seeding restaurants...');
-  
-  const insertedRestaurants = await db
-    .insert(schema.restaurants)
-    .values(sampleData.restaurants)
-    .returning();
-    
-  console.log(`✅ Inserted ${insertedRestaurants.length} restaurants`);
-  return insertedRestaurants;
-};
-
-export const seedTables = async (restaurants: any[]) => {
-  const db = getDatabase();
-  
-  console.log('🪑 Seeding tables...');
-  
-  const tables: any[] = [];
-  
-  // Create tables for each restaurant
-  for (const restaurant of restaurants) {
-    for (let i = 1; i <= 10; i++) {
-      tables.push({
-        restaurantId: restaurant.id,
-        number: i.toString().padStart(2, '0'),
-        qrCode: `QR-${restaurant.id}-${i}-${Date.now()}`,
-      });
-    }
-  }
-  
-  const insertedTables = await db
-    .insert(schema.tables)
-    .values(tables)
-    .returning();
-    
-  console.log(`✅ Inserted ${insertedTables.length} tables`);
-  return insertedTables;
-};
-
-export const seedStaff = async (restaurants: any[]) => {
-  const db = getDatabase();
-  
-  console.log('👨‍💼 Seeding staff...');
-  
-  const staff = sampleData.staff.map((staffMember, index) => ({
-    ...staffMember,
-    restaurantId: restaurants[index < 3 ? 0 : 1].id, // First 3 to restaurant 1, rest to restaurant 2
-  }));
-  
-  const insertedStaff = await db
-    .insert(schema.staff)
-    .values(staff)
-    .returning();
-    
-  console.log(`✅ Inserted ${insertedStaff.length} staff members`);
-  return insertedStaff;
-};
-
-export const seedMenuCategories = async (restaurants: any[]) => {
-  const db = getDatabase();
-  
-  console.log('📋 Seeding menu categories...');
-  
-  const categories = sampleData.menuCategories.map((category, index) => ({
-    ...category,
-    restaurantId: restaurants[index < 4 ? 0 : 1].id, // First 4 categories to restaurant 1, rest to restaurant 2
-    sortOrder: (index % 4) + 1,
-  }));
-  
-  const insertedCategories = await db
-    .insert(schema.menuCategories)
-    .values(categories)
-    .returning();
-    
-  console.log(`✅ Inserted ${insertedCategories.length} menu categories`);
-  return insertedCategories;
-};
-
-export const seedMenuItems = async (restaurants: any[], categories: any[]) => {
-  const db = getDatabase();
-  
-  console.log('🍽️ Seeding menu items...');
-  
-  // Map items to categories and restaurants
-  const menuItemsWithIds = sampleData.menuItems.map((item, index) => {
-    let categoryIndex, restaurantIndex;
-    
-    // Distribute items across categories
-    if (index < 2) { // Appetizers
-      categoryIndex = 0;
-      restaurantIndex = 0;
-    } else if (index < 5) { // Main Dishes  
-      categoryIndex = 1;
-      restaurantIndex = 0;
-    } else if (index < 7) { // Desserts
-      categoryIndex = 2;
-      restaurantIndex = 0;
-    } else if (index < 9) { // Beverages (for both restaurants)
-      categoryIndex = 3;
-      restaurantIndex = index === 7 ? 0 : 1;
-    } else if (index < 11) { // Western Food
-      categoryIndex = 4;
-      restaurantIndex = 1;
-    } else { // Asian Fusion
-      categoryIndex = 5;
-      restaurantIndex = 1;
-    }
-    
-    return {
-      ...item,
-      categoryId: categories[categoryIndex]?.id,
-      restaurantId: restaurants[restaurantIndex]?.id,
-      sortOrder: (index % 4) + 1,
-    };
-  }).filter(item => item.categoryId && item.restaurantId); // Filter out items without valid IDs
-  
-  const insertedItems = await db
-    .insert(schema.menuItems)
-    .values(menuItemsWithIds)
-    .returning();
-    
-  console.log(`✅ Inserted ${insertedItems.length} menu items`);
-  return insertedItems;
-};
-
-export const seedMenuItemVariants = async (menuItems: any[]) => {
-  const db = getDatabase();
-  
-  console.log('🔄 Seeding menu item variants...');
-  
-  const variants: any[] = [];
-  
-  // Create variants for each menu item
-  menuItems.forEach((menuItem, itemIndex) => {
-    const basePrice = sampleData.basePrices[itemIndex] || 10.00; // Default price if not found
-    
-    sampleData.variantTemplates.forEach((template) => {
-      variants.push({
-        menuItemId: menuItem.id,
-        size: template.size,
-        name: template.name,
-        nameKh: template.nameKh,
-        price: (basePrice * template.priceMultiplier).toFixed(2),
-        isDefault: template.isDefault,
-        sortOrder: template.sortOrder,
-      });
-    });
-  });
-  
-  const insertedVariants = await db
-    .insert(schema.menuItemVariants)
-    .values(variants)
-    .returning();
-    
-  console.log(`✅ Inserted ${insertedVariants.length} menu item variants`);
-  return insertedVariants;
-};
-
-export const seedKitchenLoads = async (restaurants: any[]) => {
-  const db = getDatabase();
-  
-  console.log('👨‍🍳 Seeding kitchen loads...');
-  
-  const kitchenLoads = restaurants.map(restaurant => ({
-    restaurantId: restaurant.id,
-    currentOrders: Math.floor(Math.random() * 5) + 1, // 1-5 current orders
-    averagePreparationTime: Math.floor(Math.random() * 10) + 15, // 15-25 minutes
-  }));
-  
-  const insertedLoads = await db
-    .insert(schema.kitchenLoads)
-    .values(kitchenLoads)
-    .returning();
-    
-  console.log(`✅ Inserted ${insertedLoads.length} kitchen load records`);
-  return insertedLoads;
-};
-
-export const seedSampleOrders = async (
-  restaurants: any[], 
-  tables: any[], 
-  variants: any[]
-) => {
-  const db = getDatabase();
-  
-  console.log('📝 Seeding sample orders...');
-  
-  const orders = [];
-  const orderItems = [];
-  
-  // Create 5 sample orders using sample customer telegram IDs
-  for (let i = 0; i < 5; i++) {
-    const customer = sampleData.sampleCustomers[i % sampleData.sampleCustomers.length];
-    const restaurant = restaurants[i % restaurants.length];
-    const table = tables.find(t => t.restaurantId === restaurant.id);
-    const restaurantVariants = variants.filter(v => {
-      // Find variants that belong to this restaurant's menu items
-      const menuItem = restaurant.menuItems?.find((item: any) => item.id === v.menuItemId);
-      return menuItem !== undefined;
-    });
-    
-    if (!table || restaurantVariants.length === 0) continue;
-    
-    const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Date.now()).slice(-6)}`;
-    const status = schema.orderStatusEnum.enumValues.slice(0, 4).at(i % 4);
-    
-    const order = {
-      customerTelegramId: customer!.telegramId,
-      customerName: customer!.name,
-      restaurantId: restaurant.id,
-      tableId: table.id,
-      orderNumber,
-      status,
-      totalAmount: '0', // Will calculate after items
-      estimatedPreparationMinutes: 20,
-      notes: i === 0 ? 'Please make it less spicy' : undefined,
-    };
-    
-    orders.push(order);
-  }
-  
-  if (orders.length === 0) return []; 
-
-  const insertedOrders = await db
-    .insert(schema.orders)
-    .values(orders)
-    .returning();
-  
-  // Create order items for each order using variants
-  for (let i = 0; i < insertedOrders.length; i++) {
-    const order = insertedOrders[i]!;
-    const restaurant = restaurants.find(r => r.id === order.restaurantId);
-    
-    // Get all menu items for this restaurant from our seeded data
-    const restaurantItems = sampleData.menuItems
-      .map((item, index) => {
-        let restaurantIndex;
-        if (index < 2) restaurantIndex = 0; // Appetizers
-        else if (index < 5) restaurantIndex = 0; // Main Dishes
-        else if (index < 7) restaurantIndex = 0; // Desserts
-        else if (index < 9) restaurantIndex = index === 7 ? 0 : 1; // Beverages
-        else if (index < 11) restaurantIndex = 1; // Western Food
-        else restaurantIndex = 1; // Asian Fusion
-        
-        return restaurantIndex === restaurants.indexOf(restaurant) ? { ...item, index } : null;
-      })
-      .filter(Boolean);
-    
-    // Add 1-3 items per order
-    const numItems = Math.floor(Math.random() * 3) + 1;
-    let totalAmount = 0;
-    
-    for (let j = 0; j < numItems && j < restaurantItems.length; j++) {
-      const itemData = restaurantItems[j];
-      if (!itemData) continue;
-      
-      // Find variants for this menu item
-      const menuItemVariants = variants.filter(v => {
-        // Match by restaurant and item position since we don't have exact IDs
-        return v.menuItemId && v.isDefault; // Just use default variants for simplicity
-      });
-      
-      if (menuItemVariants.length === 0) continue;
-      
-      const variant = menuItemVariants[j % menuItemVariants.length];
-      const quantity = Math.floor(Math.random() * 3) + 1;
-      const unitPrice = parseFloat(variant.price);
-      const subtotal = unitPrice * quantity;
-      totalAmount += subtotal;
-      
-      orderItems.push({
-        orderId: order.id,
-        menuItemId: variant.menuItemId,
-        variantId: variant.id,
-        quantity,
-        spiceLevel: schema.spiceLevelEnum.enumValues[Math.floor(Math.random() * 4)],
-        notes: j === 0 && i === 0 ? 'Extra crispy please' : undefined,
-        unitPrice: unitPrice.toString(),
-        subtotal: subtotal.toString(),
-      });
-    }
-    
-    // Update order total
-    await db
-      .update(schema.orders)
-      .set({ totalAmount: totalAmount.toString() })
-      .where(eq(schema.orders.id, order.id));
-  }
-  
-  if (orderItems.length > 0) {
-    await db
-      .insert(schema.orderItems)
-      .values(orderItems);
-  }
-  
-  console.log(`✅ Inserted ${insertedOrders.length} orders with ${orderItems.length} order items`);
-  return insertedOrders;
-};
-
-// Main seed function
+// Main seeding functions
 export const seedDatabase = async () => {
   try {
-    console.log('🌱 Starting database seeding...');
+    console.log('🌱 Starting comprehensive database seeding...');
+    
+    const db = getDatabase();
     
     // Check if data already exists
-    const db = getDatabase();
     const existingRestaurants = await db.select().from(schema.restaurants).limit(1);
-    
     if (existingRestaurants.length > 0) {
       console.log('⚠️ Database already contains data. Skipping seed.');
       return;
     }
+
+    // 1. Seed restaurants
+    console.log('🏢 Seeding restaurants...');
+    const insertedRestaurants = await db
+      .insert(schema.restaurants)
+      .values(sampleData.restaurants)
+      .returning();
+    console.log(`✅ Inserted ${insertedRestaurants.length} restaurants`);
+
+    // 2. Seed staff for each restaurant
+    console.log('👨‍💼 Seeding staff...');
+    const staffData = sampleData.staff.map(staff => ({
+      restaurantId: insertedRestaurants[staff.restaurantIndex]!.id,
+      telegramId: staff.telegramId,
+      role: staff.role,
+    }));
+    const insertedStaff = await db
+      .insert(schema.staff)
+      .values(staffData)
+      .returning();
+    console.log(`✅ Inserted ${insertedStaff.length} staff members`);
+
+    // 3. Seed telegram groups
+    console.log('💬 Seeding telegram groups...');
+    const groupData = sampleData.telegramGroups.map(group => ({
+      chatId: group.chatId,
+      restaurantId: insertedRestaurants[group.restaurantIndex]!.id,
+      groupType: group.groupType,
+    }));
+    const insertedGroups = await db
+      .insert(schema.telegramGroups)
+      .values(groupData)
+      .returning();
+    console.log(`✅ Inserted ${insertedGroups.length} telegram groups`);
+
+    // 4. Seed tables (10 per restaurant)
+    console.log('🪑 Seeding tables...');
+    const tables: any[] = [];
+    for (const restaurant of insertedRestaurants) {
+      for (let i = 1; i <= 10; i++) {
+        tables.push({
+          restaurantId: restaurant.id,
+          number: i.toString().padStart(2, '0'),
+        });
+      }
+    }
+    const insertedTables = await db
+      .insert(schema.tables)
+      .values(tables)
+      .returning();
+    console.log(`✅ Inserted ${insertedTables.length} tables`);
+
+    // 5. Seed menu categories
+    console.log('📋 Seeding menu categories...');
+    const categoriesData = sampleData.menuCategories.map(category => ({
+      ...category,
+      restaurantId: insertedRestaurants[category.restaurantIndex]!.id,
+    }));
+    const insertedCategories = await db
+      .insert(schema.menuCategories)
+      .values(categoriesData)
+      .returning();
+    console.log(`✅ Inserted ${insertedCategories.length} menu categories`);
+
+    // 6. Seed menu items
+    console.log('🍽️ Seeding menu items...');
+    const menuItemsData = sampleData.menuItems.map((item, _index) => ({
+      ...item,
+      categoryId: insertedCategories[item.categoryIndex]!.id,
+      restaurantId: insertedRestaurants[item.restaurantIndex]!.id,
+    }));
+    const insertedMenuItems = await db
+      .insert(schema.menuItems)
+      .values(menuItemsData)
+      .returning();
+    console.log(`✅ Inserted ${insertedMenuItems.length} menu items`);
+
+    // 7. Seed menu item variants
+    console.log('🔄 Seeding menu item variants...');
+    const variants: any[] = [];
+    insertedMenuItems.forEach((menuItem, itemIndex) => {
+      const basePrice = sampleData.basePrices[itemIndex] || 10.00;
+      
+      sampleData.variantTemplates.forEach((template) => {
+        variants.push({
+          menuItemId: menuItem.id,
+          size: template.size,
+          name: template.name,
+          nameKh: template.nameKh,
+          price: (basePrice * template.priceMultiplier).toFixed(2),
+          isDefault: template.isDefault,
+          sortOrder: template.sortOrder,
+        });
+      });
+    });
+    const insertedVariants = await db
+      .insert(schema.menuItemVariants)
+      .values(variants)
+      .returning();
+    console.log(`✅ Inserted ${insertedVariants.length} menu item variants`);
+
+    // 8. Seed kitchen loads
+    console.log('👨‍🍳 Seeding kitchen loads...');
+    const kitchenLoads = insertedRestaurants.map(restaurant => ({
+      restaurantId: restaurant.id,
+      currentOrders: Math.floor(Math.random() * 8) + 2, // 2-10 current orders
+      averagePreparationTime: Math.floor(Math.random() * 10) + 15, // 15-25 minutes
+    }));
+    const insertedLoads = await db
+      .insert(schema.kitchenLoads)
+      .values(kitchenLoads)
+      .returning();
+    console.log(`✅ Inserted ${insertedLoads.length} kitchen load records`);
+
+    // 9. Seed sample orders
+    console.log('📝 Seeding sample orders...');
+    const orders: any[] = [];
+    const orderItems: any[] = [];
     
-    // Seed in order due to foreign key dependencies
-    const restaurants = await seedRestaurants();
-    const tables = await seedTables(restaurants);
-    const staff = await seedStaff(restaurants);
-    const categories = await seedMenuCategories(restaurants);
-    const menuItems = await seedMenuItems(restaurants, categories);
-    const variants = await seedMenuItemVariants(menuItems);
-    const kitchenLoads = await seedKitchenLoads(restaurants);
-    const orders = await seedSampleOrders(restaurants, tables, variants);
-    
-    console.log('🎉 Database seeding completed successfully!');
+    // Create 8 sample orders across restaurants
+    for (let i = 0; i < 8; i++) {
+      const customer = sampleData.sampleCustomers[i % sampleData.sampleCustomers.length]!;
+      const restaurant = insertedRestaurants[i % insertedRestaurants.length]!;
+      const table = insertedTables.find(t => t.restaurantId === restaurant.id);
+      
+      if (!table) continue;
+
+      const orderNumber = `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(Date.now() + i).slice(-6)}`;
+      const status = ['pending', 'confirmed', 'preparing', 'ready'][i % 4];
+      
+      const order = {
+        customerTelegramId: customer.telegramId,
+        customerName: `${customer.firstName} ${customer.lastName}`,
+        restaurantId: restaurant.id,
+        tableId: table.id,
+        orderNumber,
+        status,
+        totalAmount: '0', // Will calculate after items
+        estimatedPreparationMinutes: Math.floor(Math.random() * 20) + 15,
+        notes: i === 0 ? 'Please make it less spicy' : undefined,
+      };
+      
+      orders.push(order);
+    }
+
+    const insertedOrders = await db
+      .insert(schema.orders)
+      .values(orders)
+      .returning();
+
+    // Create order items for each order
+    for (let i = 0; i < insertedOrders.length; i++) {
+      const order = insertedOrders[i]!;
+      const restaurant = insertedRestaurants.find(r => r.id === order.restaurantId);
+      if (!restaurant) continue;
+
+      // Get variants for this restaurant's menu items
+      const restaurantVariants = insertedVariants.filter(v => {
+        const menuItem = insertedMenuItems.find(item => item.id === v.menuItemId && item.restaurantId === restaurant.id);
+        return menuItem !== undefined;
+      });
+
+      if (restaurantVariants.length === 0) continue;
+
+      // Add 1-3 items per order
+      const numItems = Math.floor(Math.random() * 3) + 1;
+      let totalAmount = 0;
+
+      for (let j = 0; j < numItems && j < restaurantVariants.length; j++) {
+        const variant = restaurantVariants[j % restaurantVariants.length]!;
+        const quantity = Math.floor(Math.random() * 3) + 1;
+        const unitPrice = parseFloat(variant.price);
+        const subtotal = unitPrice * quantity;
+        totalAmount += subtotal;
+
+        orderItems.push({
+          orderId: order.id,
+          menuItemId: variant.menuItemId,
+          variantId: variant.id,
+          quantity,
+          spiceLevel: ['none', 'regular', 'spicy'][Math.floor(Math.random() * 3)],
+          notes: j === 0 && i === 0 ? 'Extra crispy please' : undefined,
+          subtotal: subtotal.toFixed(2),
+        });
+      }
+
+      // Update order total
+      await db
+        .update(schema.orders)
+        .set({ totalAmount: totalAmount.toFixed(2) })
+        .where(eq(schema.orders.id, order.id));
+    }
+
+    if (orderItems.length > 0) {
+      await db.insert(schema.orderItems).values(orderItems);
+    }
+
+    console.log(`✅ Inserted ${insertedOrders.length} orders with ${orderItems.length} order items`);
+
+    console.log('\n🎉 Database seeding completed successfully!');
     console.log('\n📊 Summary:');
-    console.log(`- ${restaurants.length} restaurants`);
-    console.log(`- ${tables.length} tables`);
-    console.log(`- ${staff.length} staff members`);
-    console.log(`- ${categories.length} menu categories`);
-    console.log(`- ${menuItems.length} menu items`);
-    console.log(`- ${variants.length} menu item variants`);
-    console.log(`- ${kitchenLoads.length} kitchen load records`);
-    console.log(`- ${orders.length} sample orders`);
-    
+    console.log(`- ${insertedRestaurants.length} restaurants`);
+    console.log(`- ${insertedStaff.length} staff members`);
+    console.log(`- ${insertedGroups.length} telegram groups`);
+    console.log(`- ${insertedTables.length} tables`);
+    console.log(`- ${insertedCategories.length} menu categories`);
+    console.log(`- ${insertedMenuItems.length} menu items`);
+    console.log(`- ${insertedVariants.length} menu item variants`);
+    console.log(`- ${insertedLoads.length} kitchen load records`);
+    console.log(`- ${insertedOrders.length} sample orders`);
+
   } catch (error) {
     console.error('❌ Error seeding database:', error);
     throw error;
   }
 };
 
-// Clear database function (for development/testing)
+// Clear database function
 export const clearDatabase = async () => {
   try {
     console.log('🧹 Clearing database...');
@@ -628,6 +703,7 @@ export const clearDatabase = async () => {
     await db.delete(schema.menuItemVariants);
     await db.delete(schema.menuItems);
     await db.delete(schema.menuCategories);
+    await db.delete(schema.telegramGroups);
     await db.delete(schema.staff);
     await db.delete(schema.tables);
     await db.delete(schema.restaurants);
@@ -643,18 +719,6 @@ export const clearDatabase = async () => {
 export const reseedDatabase = async () => {
   await clearDatabase();
   await seedDatabase();
-};
-
-// Export individual seeding functions for testing
-export const seedFunctions = {
-  seedRestaurants,
-  seedTables,
-  seedStaff,
-  seedMenuCategories,
-  seedMenuItems,
-  seedMenuItemVariants,
-  seedKitchenLoads,
-  seedSampleOrders,
 };
 
 // CLI interface

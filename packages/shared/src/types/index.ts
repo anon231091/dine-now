@@ -210,7 +210,6 @@ export interface CreateOrderDto {
     quantity: number;
     spiceLevel?: SpiceLevel;
     notes?: string;
-    unitPrice: string;
     subtotal: string;
   }[];
   notes?: string;

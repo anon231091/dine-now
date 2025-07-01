@@ -189,7 +189,6 @@ export const orderItems = pgTable('order_items', {
   quantity: integer('quantity').notNull().default(1),
   spiceLevel: spiceLevelEnum('spice_level').default('none'),
   notes: text('notes'),
-  unitPrice: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
   subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

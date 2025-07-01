@@ -1,18 +1,32 @@
 import { createSchemaFactory } from 'drizzle-zod';
 import { z } from 'zod/v4';
-import { restaurants, tables, staff, menuCategories, menuItems, menuItemVariants, orderStatusEnum, spiceLevelEnum, itemSizeEnum } from '../schema';
+import {
+  restaurants, tables, staff, menuCategories, menuItems, menuItemVariants,
+  orderStatusEnum, itemSizeEnum, telegramGroups, orders, orderItems,
+  kitchenLoads
+} from '../schema';
 import { BUSINESS_RULES, REGEX } from '@dine-now/shared';
 
 // Common schemas
 const IdSchema = z.string().min(1, 'ID is required');
-const TelegramIdSchema = z.number().int().positive('Invalid Telegram ID');
+const TelegramIdSchema = z.union([
+  z.number().int().positive('Invalid Telegram ID'),
+  z.bigint().positive('Invalid Telegram ID'),
+  z.string().transform((val) => BigInt(val))
+]).transform((val) => typeof val === 'bigint' ? val : BigInt(val));
 const PhoneNumberSchema = z
   .string()
   .regex(REGEX.PHONE_KH, 'Invalid Cambodia phone number format');
-const PriceSchema = z
-  .string()
-  .regex(REGEX.PRICE, 'Invalid price format');
+const PriceSchema = z.union([
+  z.string().regex(REGEX.PRICE, 'Invalid price format'),
+  z.number().min(0, 'Price must be positive').transform(String)
+]);
+const TableNumberSchema = z.union([
+  z.string().min(1, 'Table number is required'),
+  z.number().positive('Invalid table number').transform(String)
+]);
 const SortOrderSchema = z.number().int().min(0, "Sort order must be non-negative");
+const OrderNumberSchema = z.string().regex(REGEX.ORDER_NUMBER, 'Invalid order number format');
 
 const PaginationSchema = z.object({
   page: z.number().int().min(1, 'Page must be at least 1').default(1),
@@ -25,11 +39,12 @@ const PaginationSchema = z.object({
 });
 
 // API Request Schemas (enhanced versions of insert schemas)
-const { createInsertSchema } = createSchemaFactory({
+const { createInsertSchema, createUpdateSchema } = createSchemaFactory({
   zodInstance: z,
   // This configuration will only coerce dates. Set `coerce` to `true` to coerce all data types or specify others
   coerce: {
-    date: true
+    date: true,
+    bigint: true
   }
 });
 
@@ -40,15 +55,31 @@ const CreateStaffSchema = createInsertSchema(staff, {
 });
 const UpdateStaffSchema = CreateStaffSchema.partial().omit({ 
   restaurantId: true, 
-  telegramId: true 
+  telegramId: true
+});
+
+// Telegram Group schemas
+const CreateTelegramGroupSchema = createInsertSchema(telegramGroups, {
+  restaurantId: IdSchema,
+  chatId: TelegramIdSchema,
+});
+
+const UpdateTelegramGroupSchema = CreateTelegramGroupSchema.partial().omit({ 
+  restaurantId: true, 
+  chatId: true
 });
 
 // Restaurant API schemas
-const CreateRestaurantSchema = createInsertSchema(restaurants, { phoneNumber: PhoneNumberSchema });
+const CreateRestaurantSchema = createInsertSchema(restaurants, {
+  phoneNumber: PhoneNumberSchema.optional()
+});
 const UpdateRestaurantSchema = CreateRestaurantSchema.partial();
 
 // Table API schemas
-const CreateTableSchema = createInsertSchema(tables, { restaurantId: IdSchema });
+const CreateTableSchema = createInsertSchema(tables, {
+  restaurantId: IdSchema,
+  number: TableNumberSchema
+});
 const UpdateTableSchema = CreateTableSchema.partial().omit({ restaurantId: true });
 
 // Menu Category API schemas
@@ -87,36 +118,42 @@ const UpdateMenuItemVariantSchema = CreateMenuItemVariantSchema.partial().omit({
 });
 
 // Order Item schema for order creation
-const OrderItemInputSchema = z.object({
+const OrderItemInputSchema = createInsertSchema(orderItems, {
   menuItemId: IdSchema,
   variantId: IdSchema,
-  quantity: z.number().int().min(1).max(50),
-  spiceLevel: z.enum(spiceLevelEnum.enumValues).optional(),
-  notes: z.string().max(200).optional(),
+  quantity: (schema) => schema.min(1).max(BUSINESS_RULES.MAX_PER_ITEM),
+  notes: (schema) => schema.max(200).optional(),
+})
+.omit({
+  orderId: true,
+  subtotal: true
 });
 
 // Order API schemas
-const CreateOrderSchema = z.object({
+const CreateOrderSchema = createInsertSchema(orders, {
+  restaurantId: IdSchema,
   tableId: IdSchema,
   customerTelegramId: TelegramIdSchema,
+  orderNumber: OrderNumberSchema,
+  totalAmount: PriceSchema,
+  notes: (schema) => schema.max(500).optional(),
+}).extend({
   orderItems: z
     .array(OrderItemInputSchema)
-    .min(1, 'At least one item is required')
+    .min(BUSINESS_RULES.MIN_ORDER_VALUE, 'At least one item is required')
     .max(BUSINESS_RULES.MAX_ITEMS_PER_ORDER),
-  notes: z.string().max(500).optional(),
 });
 
 const UpdateOrderStatusSchema = z.object({
-  orderId: IdSchema,
   status: z.enum(orderStatusEnum.enumValues),
   notes: z.string().max(500).optional(),
 });
 
 // Kitchen Load API schemas
-const UpdateKitchenLoadSchema = z.object({
+const UpdateKitchenLoadSchema = createUpdateSchema(kitchenLoads, {
   restaurantId: IdSchema,
-  currentOrders: z.number().int().min(0),
-  averagePreparationTime: z.number().min(0),
+  currentOrders: (schema) => schema.min(0),
+  averagePreparationTime: (schema) => schema.min(0),
 });
 
 // Search and filter schemas
@@ -161,35 +198,6 @@ const AnalyticsQuerySchema = z.object({
   granularity: z.enum(['hour', 'day', 'week', 'month']).default('day'),
 });
 
-// Telegram Group schemas
-const CreateTelegramGroupSchema = z.object({
-  chatId: z.union([z.string(), z.number()]).transform(val => String(val)), // Accept both formats
-  restaurantId: IdSchema,
-  name: z.string().min(1).max(255),
-  language: z.enum(['en', 'km']).optional().default('km'),
-  settings: z.object({
-    notifyNewOrders: z.boolean().default(true),
-    notifyStatusUpdates: z.boolean().default(true),
-    quietHours: z.object({
-      start: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
-      end: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
-    }).optional(),
-  }).optional(),
-});
-
-const UpdateTelegramGroupSchema = CreateTelegramGroupSchema.partial().omit({ 
-  chatId: true 
-});
-
-// Validation helper functions
-export const validatePhoneNumber = (phone: string): boolean => {
-  return PhoneNumberSchema.safeParse(phone).success;
-};
-
-export const validateOrderNumber = (orderNumber: string): boolean => {
-  return REGEX.ORDER_NUMBER.test(orderNumber);
-};
-
 // Validation middleware helper
 export const validateSchema = <T>(schema: z.ZodSchema<T>) => {
   return (data: unknown): T => {
@@ -228,6 +236,7 @@ export const validators = {
   Id: IdSchema,
   TelegramId: TelegramIdSchema,
   PhoneNumber: PhoneNumberSchema,
+  OrderNumber: OrderNumberSchema,
   Pagination: PaginationSchema,
   
   // Parameter schemas
@@ -246,6 +255,9 @@ export const validators = {
   
   CreateStaff: CreateStaffSchema,
   UpdateStaff: UpdateStaffSchema,
+
+  CreateTelegramGroup: CreateTelegramGroupSchema,
+  UpdateTelegramGroup: UpdateTelegramGroupSchema,
   
   CreateMenuCategory: CreateMenuCategorySchema,
   UpdateMenuCategory: UpdateMenuCategorySchema,
@@ -267,7 +279,4 @@ export const validators = {
   
   ImageUpload: ImageUploadSchema,
   AnalyticsQuery: AnalyticsQuerySchema,
-
-  CreateTelegramGroup: CreateTelegramGroupSchema,
-  UpdateTelegramGroup: UpdateTelegramGroupSchema,
 } as const;
