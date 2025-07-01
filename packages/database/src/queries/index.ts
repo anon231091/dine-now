@@ -1,41 +1,79 @@
 import { eq, and, desc, asc, gte, lte, inArray, sql, count } from 'drizzle-orm';
 import { getDatabase } from '../config';
 import * as schema from '../schema';
+import {
+  transformDatabaseRow,
+  transformDatabaseRows,
+  transformDatabaseRowWithDecimals
+} from '../utils/transforms';
 import type { 
   OrderStatus, 
-  SpiceLevel, 
   ItemSize, 
   StaffRole,
-  PaginationParams 
+  PaginationParams,
+  Restaurant,
+  RestaurantWithStaff,
+  CreateRestaurantDto,
+  Table,
+  TableWithRestaurant,
+  Staff,
+  StaffWithRestaurant,
+  CreateStaffDto,
+  TelegramGroup,
+  TelegramGroupWithRestaurant,
+  CreateTelegramGroupDto,
+  UpdateTelegramGroupDto,
+  MenuItemVariant,
+  MenuCategory,
+  MenuItemWithCategory,
+  MenuItem,
+  MenuItemWithRestaurant,
+  MenuItemVariantWithCategory,
+  ID,
+  CreateOrderDto,
+  Order,
+  OrderItem,
+  OrderDetails,
+  OrderDetailsWithInfo,
+  OrderWithInfo,
+  OrderWithTable,
+  UpdateOrderStatusDto,
+  KitchenLoad,
+  KitchenLoadInfo,
+  OrderStats,
+  PopularItem,
+  HourlyOrderDistribution
 } from '@dine-now/shared';
 
 // Restaurant queries
 export const restaurantQueries = {
   // Get all active restaurants
-  getActiveRestaurants: async () => {
+  getActiveRestaurants: async (): Promise<Restaurant[]> => {
     const db = getDatabase();
-    return db
+    const rows = await db
       .select()
       .from(schema.restaurants)
       .where(eq(schema.restaurants.isActive, true))
       .orderBy(asc(schema.restaurants.name));
+
+    return transformDatabaseRows<Restaurant>(rows);
   },
 
   // Get restaurant by ID
-  getRestaurantById: async (id: string) => {
+  getRestaurantById: async (id: ID): Promise<Restaurant | undefined> => {
     const db = getDatabase();
     const result = await db
       .select()
       .from(schema.restaurants)
       .where(eq(schema.restaurants.id, id))
       .limit(1);
-    return result[0] || null;
+    return result[0] ? transformDatabaseRow<Restaurant>(result[0]) : undefined;
   },
 
   // Get restaurant with tables
-  getRestaurantWithTables: async (id: string) => {
+  getRestaurantWithTables: async (id: ID) => {
     const db = getDatabase();
-    return db
+    const rows = await db
       .select({
         restaurant: schema.restaurants,
         tables: schema.tables,
@@ -46,13 +84,71 @@ export const restaurantQueries = {
         eq(schema.restaurants.id, id),
         eq(schema.restaurants.isActive, true)
       ));
+    
+    return transformDatabaseRows(rows);
+  },
+
+  // Get restaurant with staff and groups
+  getRestaurantWithDetails: async (id: ID): Promise<RestaurantWithStaff | undefined> => {
+    const db = getDatabase();
+    
+    const restaurant = await db
+      .select()
+      .from(schema.restaurants)
+      .where(eq(schema.restaurants.id, id))
+      .limit(1);
+    
+    if (!restaurant[0]) return undefined;
+    
+    const staff = await db
+      .select()
+      .from(schema.staff)
+      .where(and(
+        eq(schema.staff.restaurantId, id),
+        eq(schema.staff.isActive, true)
+      ));
+    
+    const telegramGroups = await db
+      .select()
+      .from(schema.telegramGroups)
+      .where(and(
+        eq(schema.telegramGroups.restaurantId, id),
+        eq(schema.telegramGroups.isActive, true)
+      ));
+    
+    return {
+      ...transformDatabaseRow<Restaurant>(restaurant[0]),
+      staff,
+      telegramGroups
+    };
+  },
+
+  // Create restaurant
+  createRestaurant: async (data: CreateRestaurantDto): Promise<Restaurant | undefined> => {
+    const db = getDatabase();
+    const [restaurant] = await db
+      .insert(schema.restaurants)
+      .values(data)
+      .returning();
+    return restaurant ? transformDatabaseRow(restaurant) : undefined;
+  },
+
+  // Update restaurant
+  updateRestaurant: async (id: ID, data: Partial<CreateRestaurantDto>): Promise<Restaurant | undefined> => {
+    const db = getDatabase();
+    const [updated] = await db
+      .update(schema.restaurants)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.restaurants.id, id))
+      .returning();
+    return updated ? transformDatabaseRow(updated) : undefined;
   },
 };
 
 // Table queries
 export const tableQueries = {
-  // Get table by ID
-  getTableById: async (id: string) => {
+  // Get table by ID with restaurant info
+  getTableById: async (id: ID): Promise<TableWithRestaurant | undefined> => {
     const db = getDatabase();
     const result = await db
       .select({
@@ -67,13 +163,18 @@ export const tableQueries = {
         eq(schema.restaurants.isActive, true)
       ))
       .limit(1);
-    return result[0] || null;
+
+    if (!result[0]) return undefined;
+    return {
+      ...transformDatabaseRow<Table>(result[0].table),
+      restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant)
+    };
   },
 
   // Get tables by restaurant
-  getTablesByRestaurant: async (restaurantId: string) => {
+  getTablesByRestaurant: async (restaurantId: ID): Promise<Table[]> => {
     const db = getDatabase();
-    return db
+    const rows = await db
       .select()
       .from(schema.tables)
       .where(and(
@@ -81,13 +182,171 @@ export const tableQueries = {
         eq(schema.tables.isActive, true)
       ))
       .orderBy(asc(schema.tables.number));
+
+    return transformDatabaseRows<Table>(rows)
+  },
+
+  // Create table
+  createTable: async (data: {
+    restaurantId: ID;
+    number: string;
+  }): Promise<Table | undefined> => {
+    const db = getDatabase();
+    const [table] = await db
+      .insert(schema.tables)
+      .values(data)
+      .returning();
+    return table ? transformDatabaseRow(table) : undefined;
+  },
+};
+
+// Staff queries
+export const staffQueries = {
+  // Get staff by telegram ID
+  getStaffByTelegramId: async (telegramId: bigint): Promise<StaffWithRestaurant | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select({
+        staff: schema.staff,
+        restaurant: schema.restaurants,
+      })
+      .from(schema.staff)
+      .innerJoin(schema.restaurants, eq(schema.staff.restaurantId, schema.restaurants.id))
+      .where(and(
+        eq(schema.staff.telegramId, telegramId),
+        eq(schema.staff.isActive, true),
+        eq(schema.restaurants.isActive, true)
+      ))
+      .limit(1);
+
+    if (!result[0]) return undefined;
+    return {
+      ...transformDatabaseRow<Staff>(result[0].staff),
+      restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant)
+    }
+  },
+
+  // Get staff by restaurant and role
+  getStaffByRestaurantAndRole: async (restaurantId: ID, role?: StaffRole): Promise<Staff[]> => {
+    const db = getDatabase();
+    
+    const conditions = [
+      eq(schema.staff.restaurantId, restaurantId),
+      eq(schema.staff.isActive, true),
+    ];
+    
+    if (role) {
+      conditions.push(eq(schema.staff.role, role));
+    }
+    
+    const rows = await db
+      .select()
+      .from(schema.staff)
+      .where(and(...conditions))
+      .orderBy(asc(schema.staff.role), asc(schema.staff.telegramId));
+
+    return transformDatabaseRows<Staff>(rows);
+  },
+
+  // Create staff member
+  createStaff: async (data: CreateStaffDto): Promise<Staff | undefined> => {
+    const db = getDatabase();
+    const [staff] = await db
+      .insert(schema.staff)
+      .values(data)
+      .returning();
+    return staff;
+  },
+
+  // Update staff role
+  updateStaffRole: async (staffId: ID, role: StaffRole): Promise<Staff | undefined> => {
+    const db = getDatabase();
+    const [updated] = await db
+      .update(schema.staff)
+      .set({ role, updatedAt: new Date() })
+      .where(eq(schema.staff.id, staffId))
+      .returning();
+    return updated;
+  },
+
+  // Deactivate staff
+  deactivateStaff: async (staffId: ID): Promise<Staff | undefined> => {
+    const db = getDatabase();
+    const [updated] = await db
+      .update(schema.staff)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(schema.staff.id, staffId))
+      .returning();
+    return updated;
+  },
+};
+
+// Telegram Group queries
+export const telegramGroupQueries = {
+  // Get group by chat ID
+  getGroupByTelegramId: async (chatId: bigint): Promise<TelegramGroupWithRestaurant | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select({
+        group: schema.telegramGroups,
+        restaurant: schema.restaurants,
+      })
+      .from(schema.telegramGroups)
+      .innerJoin(schema.restaurants, eq(schema.telegramGroups.restaurantId, schema.restaurants.id))
+      .where(and(
+        eq(schema.telegramGroups.chatId, chatId),
+        eq(schema.telegramGroups.isActive, true)
+      ))
+      .limit(1);
+
+    if (!result[0]) return undefined;
+    return {
+      ...transformDatabaseRow<TelegramGroup>(result[0].group),
+      restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant)
+    }
+  },
+
+  // Get groups by restaurant
+  getGroupsByRestaurant: async (restaurantId: ID): Promise<TelegramGroup[]> => {
+    const db = getDatabase();
+    const rows = await db
+      .select()
+      .from(schema.telegramGroups)
+      .where(and(
+        eq(schema.telegramGroups.restaurantId, restaurantId),
+        eq(schema.telegramGroups.isActive, true)
+      ))
+      .orderBy(asc(schema.telegramGroups.groupType));
+
+    return transformDatabaseRows<TelegramGroup>(rows);
+  },
+
+  // Register group
+  registerGroup: async (data: CreateTelegramGroupDto): Promise<TelegramGroup | undefined> => {
+    const db = getDatabase();
+    const [group] = await db
+      .insert(schema.telegramGroups)
+      .values(data)
+      .returning();
+    return group ? transformDatabaseRow<TelegramGroup>(group) : undefined;
+  },
+
+  // Update group
+  updateGroup: async (groupId: ID, data: Partial<UpdateTelegramGroupDto>): Promise<TelegramGroup | undefined> => {
+    const db = getDatabase();
+    const [updated] = await db
+      .update(schema.telegramGroups)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.telegramGroups.id, groupId))
+      .returning();
+    return updated ? transformDatabaseRow<TelegramGroup>(updated) : undefined;
   },
 };
 
 // Menu queries with variants support
 export const menuQueries = {
   // Get menu by restaurant with categories, items, and variants
-  getMenuByRestaurant: async (restaurantId: string) => {
+  getMenuByRestaurant: async (restaurantId: ID): Promise<MenuItemWithCategory[]> => {
     const db = getDatabase();
     
     // Get menu items with their categories
@@ -128,27 +387,31 @@ export const menuQueries = {
       ))
       .orderBy(asc(schema.menuItemVariants.sortOrder));
 
+    // Transform variants and group by menu item ID
+    const transformedVariants = variants.map(({ variant, menuItemId }) => ({
+      variant: transformDatabaseRowWithDecimals<MenuItemVariant>(variant),
+      menuItemId
+    }));
+
     // Group variants by menu item ID
-    const variantsByMenuItem = new Map();
-    variants.forEach(({ variant, menuItemId }) => {
+    const variantsByMenuItem = new Map<string, MenuItemVariant[]>();
+    transformedVariants.forEach(({ variant, menuItemId }) => {
       if (!variantsByMenuItem.has(menuItemId)) {
         variantsByMenuItem.set(menuItemId, []);
       }
-      variantsByMenuItem.get(menuItemId).push(variant);
+      variantsByMenuItem.get(menuItemId)!.push(variant);
     });
 
-    // Attach variants to menu items
-    return menuData.map(row => ({
-      ...row,
-      item: row.item ? {
-        ...row.item,
-        variants: variantsByMenuItem.get(row.item.id) || []
-      } : null
+    // Transform menu data and attach variants
+    return menuData.filter(row => !!row.item).map(row => ({
+      ...transformDatabaseRow<MenuItem>(row.item),
+      category: transformDatabaseRow<MenuCategory>(row.category),
+      variants: variantsByMenuItem.get(row.item!.id) || []
     }));
   },
 
   // Get menu item by ID with variants
-  getMenuItemById: async (id: string) => {
+  getMenuItemById: async (id: ID): Promise<MenuItemWithRestaurant | undefined> => {
     const db = getDatabase();
     const result = await db
       .select({
@@ -166,10 +429,10 @@ export const menuQueries = {
       ))
       .limit(1);
 
-    if (!result[0]) return null;
+    if (!result[0]) return undefined;
 
     // Get variants for this menu item
-    const variants = await db
+    const variantRows = await db
       .select()
       .from(schema.menuItemVariants)
       .where(and(
@@ -177,18 +440,18 @@ export const menuQueries = {
         eq(schema.menuItemVariants.isAvailable, true)
       ))
       .orderBy(asc(schema.menuItemVariants.sortOrder));
+    const variants = variantRows.map(row => transformDatabaseRowWithDecimals<MenuItemVariant>(row));
 
     return {
-      ...result[0],
-      item: {
-        ...result[0].item,
-        variants
-      }
+      ...transformDatabaseRow<MenuItem>(result[0].item),
+      category: transformDatabaseRow<MenuCategory>(result[0].category),
+      restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant),
+      variants
     };
   },
 
   // Get variant by ID
-  getVariantById: async (variantId: string) => {
+  getVariantById: async (variantId: ID): Promise<MenuItemVariantWithCategory | undefined> => {
     const db = getDatabase();
     const result = await db
       .select({
@@ -207,20 +470,25 @@ export const menuQueries = {
       ))
       .limit(1);
     
-    return result[0] || null;
+    if (!result[0]) return undefined;
+    return {
+      ...transformDatabaseRowWithDecimals<MenuItemVariant>(result[0].variant),
+      item: transformDatabaseRow<MenuItem>(result[0].item),
+      category: transformDatabaseRow<MenuCategory>(result[0].category)
+    }
   },
 
   // Search menu items with variants
   searchMenuItems: async (params: {
-    restaurantId: string;
-    categoryId?: string;
+    restaurantId: ID;
+    categoryId?: ID;
     search?: string;
     minPrice?: number;
     maxPrice?: number;
     size?: ItemSize;
     isAvailable?: boolean;
     pagination?: PaginationParams;
-  }) => {
+  }): Promise<MenuItemWithCategory[]> => {
     const db = getDatabase();
     const { restaurantId, categoryId, search, minPrice, maxPrice, size, isAvailable, pagination } = params;
     
@@ -228,7 +496,7 @@ export const menuQueries = {
     const conditions = [
       eq(schema.menuItems.restaurantId, restaurantId),
       eq(schema.menuItems.isActive, true),
-      eq(schema.menuItemVariants.isAvailable, true), // Variant must be available
+      eq(schema.menuItemVariants.isAvailable, true),
     ];
     
     if (categoryId) {
@@ -245,7 +513,6 @@ export const menuQueries = {
       conditions.push(eq(schema.menuItems.isAvailable, isAvailable));
     }
 
-    // Add variant-specific filters to conditions
     if (size) {
       conditions.push(eq(schema.menuItemVariants.size, size));
     }
@@ -278,48 +545,54 @@ export const menuQueries = {
       .offset(offset);
 
     // Group variants by menu item
-    const itemsMap = new Map();
+    const itemsMap = new Map<ID, MenuItemWithCategory>();
     results.forEach(({ item, category, variant }) => {
       if (!itemsMap.has(item.id)) {
         itemsMap.set(item.id, {
-          item: { ...item, variants: [] },
-          category
+          ...transformDatabaseRow<MenuItem>(item),
+          category: transformDatabaseRow<MenuCategory>(category),
+          variants: [],
         });
       }
-      itemsMap.get(item.id).item.variants.push(variant);
+      itemsMap.get(item.id)!.variants.push(transformDatabaseRowWithDecimals<MenuItemVariant>(variant));
     });
 
     return Array.from(itemsMap.values());
   },
+
+  // Toggle menu item availability
+  toggleMenuItemAvailability: async (itemId: ID, isAvailable: boolean, variantId?: ID): Promise<MenuItem | MenuItemVariant | undefined> => {
+    const db = getDatabase();
+    
+    if (variantId) {
+      // Toggle specific variant
+      const [updated] = await db
+        .update(schema.menuItemVariants)
+        .set({ isAvailable, updatedAt: new Date() })
+        .where(eq(schema.menuItemVariants.id, variantId))
+        .returning();
+      return updated ? transformDatabaseRowWithDecimals<MenuItemVariant>(updated) : undefined;
+    } else {
+      // Toggle entire menu item
+      const [updated] = await db
+        .update(schema.menuItems)
+        .set({ isAvailable, updatedAt: new Date() })
+        .where(eq(schema.menuItems.id, itemId))
+        .returning();
+      return updated ? transformDatabaseRow<MenuItem>(updated) : undefined;
+    }
+  },
 };
 
-// Order queries updated for variants
+// Order queries updated for variants and direct telegram ID
 export const orderQueries = {
   // Create new order with variants
-  createOrder: async (orderData: {
-    customerTelegramId: bigint;
-    customerName: string;
-    restaurantId: string;
-    tableId: string;
-    orderNumber: string;
-    totalAmount: string;
-    estimatedPreparationMinutes: number;
-    notes?: string;
-    orderItems: Array<{
-      menuItemId: string;
-      variantId: string;
-      quantity: number;
-      spiceLevel?: SpiceLevel;
-      notes?: string;
-      unitPrice: string;
-      subtotal: string;
-    }>;
-  }) => {
+  createOrder: async (orderData: CreateOrderDto): Promise<OrderDetails | undefined> => {
     const db = getDatabase();
     
     return db.transaction(async (tx) => {
       // Insert order
-      const [order] = await tx
+      const [orderRow] = await tx
         .insert(schema.orders)
         .values({
           customerTelegramId: orderData.customerTelegramId,
@@ -330,16 +603,14 @@ export const orderQueries = {
           totalAmount: orderData.totalAmount,
           estimatedPreparationMinutes: orderData.estimatedPreparationMinutes,
           notes: orderData.notes,
-          status: 'pending',
         })
         .returning();
 
-      if (!order) {
-        return { order: null, orderItems: [] };
-      }
+      if (!orderRow) return undefined;
+      const order = transformDatabaseRowWithDecimals<Order>(orderRow);
 
       // Insert order items with variant references
-      const orderItems = await tx
+      const orderItemRows = await tx
         .insert(schema.orderItems)
         .values(
           orderData.orderItems.map(item => ({
@@ -348,13 +619,14 @@ export const orderQueries = {
           }))
         )
         .returning();
+      const orderItems = orderItemRows.map(row => transformDatabaseRowWithDecimals<OrderItem>(row));
       
-      return { order, orderItems };
+      return { ...order, orderItems };
     });
   },
 
   // Get order by ID with details including variants
-  getOrderById: async (id: string) => {
+  getOrderById: async (id: string): Promise<OrderDetailsWithInfo | undefined> => {
     const db = getDatabase();
     const result = await db
       .select({
@@ -368,10 +640,10 @@ export const orderQueries = {
       .where(eq(schema.orders.id, id))
       .limit(1);
     
-    if (!result[0]) return null;
+    if (!result[0]) return undefined;
     
     // Get order items with menu items and variants
-    const orderItems = await db
+    const orderItemRows = await db
       .select({
         orderItem: schema.orderItems,
         menuItem: schema.menuItems,
@@ -381,18 +653,26 @@ export const orderQueries = {
       .innerJoin(schema.menuItems, eq(schema.orderItems.menuItemId, schema.menuItems.id))
       .innerJoin(schema.menuItemVariants, eq(schema.orderItems.variantId, schema.menuItemVariants.id))
       .where(eq(schema.orderItems.orderId, id));
+    const orderItems = orderItemRows.map(row => transformDatabaseRowWithDecimals<OrderItem>({
+      ...row.orderItem,
+      menuItem: row.menuItem,
+      variant: row.variant
+    }));
     
     return {
-      ...result[0],
+      ...transformDatabaseRowWithDecimals<Order>(result[0].order),
+      restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant),
+      table: transformDatabaseRow<Table>(result[0].table),
       orderItems,
     };
   },
 
   // Get orders by customer telegram ID
-  getOrdersByCustomerTelegramId: async (telegramId: bigint, pagination?: PaginationParams) => {
+  getOrdersByCustomerTelegramId: async (telegramId: bigint, pagination: PaginationParams = { page: 0, limit: 20 }): Promise<OrderWithInfo[]> => {
     const db = getDatabase();
     
-    const query = db
+    const offset = (pagination.page - 1) * pagination.limit;
+    const rows = await db
       .select({
         order: schema.orders,
         restaurant: schema.restaurants,
@@ -402,22 +682,23 @@ export const orderQueries = {
       .innerJoin(schema.restaurants, eq(schema.orders.restaurantId, schema.restaurants.id))
       .innerJoin(schema.tables, eq(schema.orders.tableId, schema.tables.id))
       .where(eq(schema.orders.customerTelegramId, telegramId))
-      .orderBy(desc(schema.orders.createdAt));
+      .orderBy(desc(schema.orders.createdAt))
+      .limit(pagination.limit)
+      .offset(offset);
     
-    if (pagination) {
-      const offset = (pagination.page - 1) * pagination.limit;
-      query.limit(pagination.limit).offset(offset);
-    }
-    
-    return query;
+    return rows.map(row => ({
+      ...transformDatabaseRowWithDecimals<Order>(row.order),
+      restaurant: transformDatabaseRow<Restaurant>(row.restaurant),
+      table: transformDatabaseRow<Table>(row.table)
+    }));
   },
 
   // Get orders by restaurant and status
   getOrdersByRestaurantAndStatus: async (
-    restaurantId: string, 
+    restaurantId: ID, 
     status?: OrderStatus[],
-    pagination?: PaginationParams
-  ) => {
+    pagination: PaginationParams = { page: 0, limit: 20 },
+  ): Promise<OrderWithTable[]> => {
     const db = getDatabase();
     
     const conditions = [eq(schema.orders.restaurantId, restaurantId)];
@@ -426,7 +707,8 @@ export const orderQueries = {
       conditions.push(inArray(schema.orders.status, status));
     }
     
-    const query = db
+    const offset = (pagination.page - 1) * pagination.limit;
+    const rows = await db
       .select({
         order: schema.orders,
         table: schema.tables,
@@ -434,28 +716,25 @@ export const orderQueries = {
       .from(schema.orders)
       .innerJoin(schema.tables, eq(schema.orders.tableId, schema.tables.id))
       .where(and(...conditions))
-      .orderBy(desc(schema.orders.createdAt));
+      .orderBy(desc(schema.orders.createdAt))
+      .limit(pagination.limit)
+      .offset(offset);
     
-    if (pagination) {
-      const offset = (pagination.page - 1) * pagination.limit;
-      query.limit(pagination.limit).offset(offset);
-    }
-    
-    return query;
+    return rows.map(row => ({
+      ...transformDatabaseRowWithDecimals<Order>(row.order),
+      table: transformDatabaseRow<Table>(row.table)
+    }));
   },
 
   // Update order status
-  updateOrderStatus: async (orderId: string, status: OrderStatus, notes?: string) => {
+  updateOrderStatus: async (data: UpdateOrderStatusDto): Promise<Order | undefined> => {
+    const { orderId, status } = data;
     const db = getDatabase();
     
     const updateData: any = {
       status,
       updatedAt: new Date(),
     };
-    
-    if (notes) {
-      updateData.notes = notes;
-    }
     
     // Set timestamps based on status
     switch (status) {
@@ -489,86 +768,36 @@ export const orderQueries = {
       .where(eq(schema.orders.id, orderId))
       .returning();
     
-    return updated;
+    return updated ? transformDatabaseRowWithDecimals(updated) : undefined;
   },
 
   // Get active orders for kitchen with variants
-  getActiveOrdersForKitchen: async (restaurantId: string) => {
+  getActiveOrdersForKitchen: async (restaurantId: ID): Promise<OrderWithTable[]> => {
     const db = getDatabase();
-    return db
+    const rows = await db
       .select({
         order: schema.orders,
         table: schema.tables,
-        orderItems: schema.orderItems,
-        menuItem: schema.menuItems,
-        variant: schema.menuItemVariants,
       })
       .from(schema.orders)
       .innerJoin(schema.tables, eq(schema.orders.tableId, schema.tables.id))
-      .innerJoin(schema.orderItems, eq(schema.orders.id, schema.orderItems.orderId))
-      .innerJoin(schema.menuItems, eq(schema.orderItems.menuItemId, schema.menuItems.id))
-      .innerJoin(schema.menuItemVariants, eq(schema.orderItems.variantId, schema.menuItemVariants.id))
       .where(and(
         eq(schema.orders.restaurantId, restaurantId),
         inArray(schema.orders.status, ['pending', 'confirmed', 'preparing'])
       ))
       .orderBy(asc(schema.orders.createdAt));
+
+    return rows.map(row => ({
+      ...transformDatabaseRowWithDecimals<Order>(row.order),
+      table: transformDatabaseRow<Table>(row.table)
+    }))
   },
 };
 
-// Staff queries (unchanged)
-export const staffQueries = {
-  // Get staff by telegram ID and restaurant
-  getStaffByTelegramId: async (telegramId: bigint, restaurantId?: string) => {
-    const db = getDatabase();
-    
-    const conditions = [
-      eq(schema.staff.telegramId, telegramId),
-      eq(schema.staff.isActive, true),
-    ];
-    
-    if (restaurantId) {
-      conditions.push(eq(schema.staff.restaurantId, restaurantId));
-    }
-    
-    const result = await db
-      .select({
-        staff: schema.staff,
-        restaurant: schema.restaurants,
-      })
-      .from(schema.staff)
-      .innerJoin(schema.restaurants, eq(schema.staff.restaurantId, schema.restaurants.id))
-      .where(and(...conditions))
-      .limit(1);
-    
-    return result[0] || null;
-  },
-
-  // Get staff by restaurant and role
-  getStaffByRestaurantAndRole: async (restaurantId: string, role?: StaffRole) => {
-    const db = getDatabase();
-    
-    const conditions = [
-      eq(schema.staff.restaurantId, restaurantId),
-      eq(schema.staff.isActive, true),
-    ];
-    
-    if (role) {
-      conditions.push(eq(schema.staff.role, role));
-    }
-    
-    return db
-      .select()
-      .from(schema.staff)
-      .where(and(...conditions))
-      .orderBy(asc(schema.staff.firstName));
-  },
-};
-
-// Kitchen load queries (unchanged)
+// Kitchen load queries
 export const kitchenQueries = {
   // Get current kitchen load
-  getKitchenLoad: async (restaurantId: string) => {
+  getKitchenLoad: async (restaurantId: ID): Promise<KitchenLoad | undefined> => {
     const db = getDatabase();
     const result = await db
       .select()
@@ -577,14 +806,11 @@ export const kitchenQueries = {
       .orderBy(desc(schema.kitchenLoads.lastUpdated))
       .limit(1);
     
-    return result[0] || null;
+    return result[0] ? transformDatabaseRow(result[0]) : undefined;
   },
 
   // Update kitchen load
-  updateKitchenLoad: async (restaurantId: string, data: {
-    currentOrders: number;
-    averagePreparationTime: number;
-  }) => {
+  updateKitchenLoad: async (restaurantId: ID, data: KitchenLoadInfo): Promise<KitchenLoad | undefined> => {
     const db = getDatabase();
     
     // Try to update existing record
@@ -610,11 +836,11 @@ export const kitchenQueries = {
       })
       .returning();
     
-    return created;
+    return created ? transformDatabaseRow(created) : undefined;
   },
 
   // Calculate kitchen load from active orders
-  calculateKitchenLoad: async (restaurantId: string) => {
+  calculateKitchenLoad: async (restaurantId: ID): Promise<KitchenLoadInfo> => {
     const db = getDatabase();
     
     // Count active orders
@@ -655,7 +881,7 @@ export const kitchenQueries = {
 // Analytics queries updated for variants
 export const analyticsQueries = {
   // Get order statistics
-  getOrderStats: async (restaurantId: string, dateFrom: Date, dateTo: Date) => {
+  getOrderStats: async (restaurantId: ID, dateFrom: Date, dateTo: Date): Promise<OrderStats | undefined> => {
     const db = getDatabase();
     
     const [stats] = await db
@@ -663,6 +889,7 @@ export const analyticsQueries = {
         totalOrders: count(),
         totalRevenue: sql<number>`SUM(CAST(${schema.orders.totalAmount} AS DECIMAL))`,
         averageOrderValue: sql<number>`AVG(CAST(${schema.orders.totalAmount} AS DECIMAL))`,
+        completedOrders: sql<number>`COUNT(CASE WHEN ${schema.orders.status} = 'served' THEN 1 END)`,
         cancelledOrders: sql<number>`COUNT(CASE WHEN ${schema.orders.status} = 'cancelled' THEN 1 END)`,
       })
       .from(schema.orders)
@@ -676,10 +903,10 @@ export const analyticsQueries = {
   },
 
   // Get popular menu items with variants
-  getPopularMenuItems: async (restaurantId: string, dateFrom: Date, dateTo: Date, limit: number = 10) => {
+  getPopularMenuItems: async (restaurantId: ID, dateFrom: Date, dateTo: Date, limit: number = 10): Promise<PopularItem[]> => {
     const db = getDatabase();
     
-    return db
+    const rows = await db
       .select({
         menuItem: schema.menuItems,
         variant: schema.menuItemVariants,
@@ -700,10 +927,16 @@ export const analyticsQueries = {
       .groupBy(schema.menuItems.id, schema.menuItemVariants.id)
       .orderBy(desc(sql`SUM(${schema.orderItems.quantity})`))
       .limit(limit);
+
+    return rows.map(row => ({
+      ...row,
+      menuItem: transformDatabaseRow<MenuItem>(row.menuItem),
+      variant: transformDatabaseRow<MenuItemVariant>(row.variant),
+    }))
   },
 
   // Get hourly order distribution
-  getHourlyOrderDistribution: async (restaurantId: string, date: Date) => {
+  getHourlyOrderDistribution: async (restaurantId: ID, date: Date): Promise<HourlyOrderDistribution[]>  => {
     const db = getDatabase();
     
     const startOfDay = new Date(date);
@@ -729,42 +962,6 @@ export const analyticsQueries = {
   },
 };
 
-// packages/database/src/queries/bot.ts
-export const botQueries = {
-  getGroupByTelegramId: async (chatId: bigint) => {
-    const db = getDatabase();
-    const result = await db
-      .select()
-      .from(schema.telegramGroups)
-      .where(eq(schema.telegramGroups.chatId, chatId))
-      .limit(1);
-    return result[0] || null;
-  },
-
-  getGroupsByRestaurant: async (restaurantId: string) => {
-    const db = getDatabase();
-    const result = await db
-      .select()
-      .from(schema.telegramGroups)
-      .where(eq(schema.telegramGroups.restaurantId, restaurantId));
-    return result || null;
-  },
-
-  registerGroup: async (data: {
-    chatId: bigint;
-    restaurantId: string;
-    name: string;
-    language?: string;
-  }) => {
-    const db = getDatabase();
-    const [group] = await db
-      .insert(schema.telegramGroups)
-      .values(data)
-      .returning();
-    return group;
-  },
-};
-
 // Export all query modules
 export const queries = {
   restaurant: restaurantQueries,
@@ -772,7 +969,7 @@ export const queries = {
   menu: menuQueries,
   order: orderQueries,
   staff: staffQueries,
+  telegramGroup: telegramGroupQueries,
   kitchen: kitchenQueries,
   analytics: analyticsQueries,
-  bot: botQueries,
 };

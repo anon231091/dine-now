@@ -1,3 +1,44 @@
+// Predefined enum values in DB
+export const USER_TYPES = [
+  'general',
+  'staff'
+] as const;
+
+export const STAFF_ROLES = [
+  'admin',
+  'manager',
+  'kitchen',
+  'service'
+] as const;
+
+export const ORDER_STATUS = [
+  'pending',
+  'confirmed', 
+  'preparing',
+  'ready',
+  'served',
+  'cancelled'
+] as const;
+
+export const GROUP_TYPES = [
+  'management',
+  'kitchen',
+  'service'
+] as const;
+
+export const ITEM_SIZES = [
+  'small',
+  'regular',
+  'large'
+] as const;
+
+export const SPICE_LEVELS = [
+  'none',
+  'regular',
+  'spicy',
+  'very_spicy'
+] as const;
+
 // Environment
 export const ENVIRONMENT = {
   DEVELOPMENT: 'development',
@@ -40,6 +81,7 @@ export const ERROR_MESSAGES = {
   CONFLICT_ERROR: 'Duplicate entry',
   REFERENCE_ERROR: 'Invalid reference',
   UNPROCESSABLE: 'Unprocessable request',
+  NO_PERMISSION: 'Insufficient permissions for this action',
   RATE_LIMITED: 'Too many requests, please try again later'
 } as const;
 
@@ -69,14 +111,45 @@ export const BUSINESS_RULES = {
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
 } as const;
 
-// Service permissions
-export const SERVICE_PERMISSIONS = [
-  'orders:read',
-  'orders:update',
-  'kitchen:read',
-  'kitchen:update',
-  'restaurants:read'
-];
+// Role permissions mapping
+export const ROLE_PERMISSIONS = {
+  ['super-admin']: [
+    'restaurants:create',
+    'restaurants:read',
+    'restaurants:update', 
+    'restaurants:delete',
+    'staff:assign_admin',
+    'system:manage'
+  ],
+  ['admin']: [
+    'restaurant:manage',
+    'menu:manage',
+    'tables:manage',
+    'staff:assign',
+    'orders:read',
+    'analytics:read',
+    'telegram_groups:manage'
+  ],
+  ['manager']: [
+    'restaurant:read',
+    'menu:manage',
+    'tables:manage',
+    'orders:read',
+    'analytics:read',
+    'telegram_groups:read'
+  ],
+  ['kitchen']: [
+    'orders:read',
+    'orders:update_status',
+    'menu:toggle_availability'
+  ],
+  ['service']: [
+    'orders:read',
+    'orders:update_status',
+    'menu:toggle_availability',
+    'orders:place_for_customer'
+  ]
+} as const;
 
 // Status Messages
 export const STATUS_MESSAGES = {

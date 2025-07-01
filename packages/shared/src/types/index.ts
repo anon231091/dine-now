@@ -1,50 +1,20 @@
-import { ERROR_MESSAGES, HTTP_STATUS, SERVICE_PERMISSIONS } from "../constants";
+import { ERROR_MESSAGES, GROUP_TYPES, HTTP_STATUS, ITEM_SIZES, ORDER_STATUS, SPICE_LEVELS, STAFF_ROLES, USER_TYPES } from "../constants";
 
 // Base types
 export type ID = string;
 export type Timestamp = Date;
 
-export enum UserType {
-  General = 'general',
-  Staff = 'staff'
-};
+export type UserType = typeof USER_TYPES[number];
 
-// Staff roles with clear hierarchy
-export enum StaffRole {
-  ADMIN = 'admin',            // Restaurant owner
-  MANAGER = 'manager',        // Restaurant manager
-  KITCHEN = 'kitchen',        // Kitchen staff
-  SERVICE = 'service'         // Service staff
-}
+export type StaffRole = typeof STAFF_ROLES[number]; 
 
-export enum GroupType {
-  MANAGEMENT = 'management',
-  KITCHEN = 'kitchen',
-  SERVICE = 'service'
-}
+export type GroupType = typeof GROUP_TYPES[number]; 
 
-// Order types
-export enum OrderStatus {
-  PENDING = 'pending',
-  CONFIRMED = 'confirmed',
-  PREPARING = 'preparing',
-  READY = 'ready',
-  SERVED = 'served',
-  CANCELLED = 'cancelled'
-}
+export type OrderStatus = typeof ORDER_STATUS[number]; 
 
-export enum SpiceLevel {
-  NONE = 'none',
-  REGULAR = 'regular',
-  SPICY = 'spicy',
-  VERY_SPICY = 'very_spicy'
-}
+export type SpiceLevel = typeof SPICE_LEVELS[number];
 
-export enum ItemSize {
-  SMALL = 'small',
-  REGULAR = 'regular',
-  LARGE = 'large'
-}
+export type ItemSize = typeof ITEM_SIZES[number];
 
 // Restaurant structure
 export interface Restaurant {
@@ -53,8 +23,8 @@ export interface Restaurant {
   nameKh?: string;
   description?: string;
   descriptionKh?: string;
-  address: string;
-  phoneNumber: string;
+  address?: string;
+  phoneNumber?: string;
   isActive: boolean;
   createdAt: Timestamp;
   updatedAt: Timestamp;
@@ -118,7 +88,21 @@ export interface MenuItem {
   isAvailable: boolean;
   isActive: boolean;
   sortOrder: number;
-  variants?: MenuItemVariant[];
+  variants: MenuItemVariant[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface MenuItemVariant {
+  id: ID;
+  menuItemId: ID;
+  size: ItemSize;
+  name?: string;
+  nameKh?: string;
+  price: number;
+  isAvailable: boolean;
+  isDefault: boolean;
+  sortOrder: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -132,15 +116,9 @@ export interface Order {
   orderNumber: string;
   status: OrderStatus;
   totalAmount: number;
-  currency: Currency;
   estimatedPreparationMinutes: number;
   actualPreparationMinutes?: number;
   notes?: string;
-  placedByStaffId?: ID; // If placed by staff on behalf of customer
-  orderItems: OrderItem[];
-  table?: Table;
-  restaurant?: Restaurant;
-  placedByStaff?: Staff;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   confirmedAt?: Timestamp;
@@ -173,60 +151,6 @@ export interface KitchenLoad {
   lastUpdated: Timestamp;
   createdAt: Timestamp;
 }
-
-export interface MenuItemVariant {
-  id: ID;
-  menuItemId: ID;
-  size: ItemSize;
-  name?: string;
-  nameKh?: string;
-  price: number;
-  isAvailable: boolean;
-  isDefault: boolean;
-  sortOrder: number;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-
-// Role permissions mapping
-export const ROLE_PERMISSIONS = {
-  ['super-admin']: [
-    'restaurants:create',
-    'restaurants:read',
-    'restaurants:update', 
-    'restaurants:delete',
-    'staff:assign_admin',
-    'system:manage'
-  ],
-  [StaffRole.ADMIN]: [
-    'restaurant:manage',
-    'menu:manage',
-    'tables:manage',
-    'staff:assign',
-    'orders:read',
-    'analytics:read',
-    'telegram_groups:manage'
-  ],
-  [StaffRole.MANAGER]: [
-    'restaurant:read',
-    'menu:manage',
-    'tables:manage',
-    'orders:read',
-    'analytics:read',
-    'telegram_groups:read'
-  ],
-  [StaffRole.KITCHEN]: [
-    'orders:read',
-    'orders:update_status',
-    'menu:toggle_availability'
-  ],
-  [StaffRole.SERVICE]: [
-    'orders:read',
-    'orders:update_status',
-    'menu:toggle_availability',
-    'orders:place_for_customer'
-  ]
-} as const;
 
 // API Response types
 export interface ApiResponse<T = any> {
@@ -273,13 +197,21 @@ export interface CreateStaffDto {
 }
 
 export interface CreateOrderDto {
+  customerTelegramId: bigint;
+  customerName: string;
+  restaurantId: ID;
   tableId: ID;
+  orderNumber: string;
+  totalAmount: string;
+  estimatedPreparationMinutes: number;
   orderItems: {
     menuItemId: ID;
     variantId: ID;
     quantity: number;
     spiceLevel?: SpiceLevel;
     notes?: string;
+    unitPrice: string;
+    subtotal: string;
   }[];
   notes?: string;
 }
@@ -295,6 +227,11 @@ export interface CreateTelegramGroupDto {
   groupType: GroupType;
 }
 
+export interface UpdateTelegramGroupDto {
+  groupType: GroupType;
+  isActive: boolean;
+}
+
 export interface UpdateMenuItemAvailabilityDto {
   menuItemId: ID;
   isAvailable: boolean;
@@ -306,18 +243,35 @@ export interface MenuItemWithCategory extends MenuItem {
   category: MenuCategory;
 }
 
-export interface MenuItemWithVariants extends MenuItem {
-  variants: MenuItemVariant[];
-  defaultVariant?: MenuItemVariant;
+export interface MenuItemWithRestaurant extends MenuItemWithCategory {
+  restaurant: Restaurant;
+} 
+
+export interface MenuItemVariantWithCategory extends MenuItemVariant {
+  item: MenuItem;
+  category: MenuCategory;
 }
 
-export interface OrderWithDetails extends Order {
+export interface OrderDetails extends Order {
+  orderItems: OrderItem[];
+}
+
+export interface OrderWithTable extends Order {
+  table: Table;
+}
+
+export interface OrderWithInfo extends Order {
   restaurant: Restaurant;
   table: Table;
-  orderItems: (OrderItem & {
-    menuItem: MenuItem;
-    variant: MenuItemVariant;
-  })[];
+}
+
+export interface OrderDetailsWithTable extends OrderDetails {
+  table: Table;
+}
+
+export interface OrderDetailsWithInfo extends OrderDetails {
+  restaurant: Restaurant;
+  table: Table;
 }
 
 export interface StaffWithRestaurant extends Staff {
@@ -327,6 +281,23 @@ export interface StaffWithRestaurant extends Staff {
 export interface RestaurantWithStaff extends Restaurant {
   staff: Staff[];
   telegramGroups?: TelegramGroup[];
+}
+
+export interface RestaurantWithTables extends Restaurant {
+  tables: Table[];
+}
+
+export interface TableWithRestaurant extends Table {
+  restaurant: Restaurant;
+}
+
+export interface TelegramGroupWithRestaurant extends TelegramGroup {
+  restaurant: Restaurant;
+}
+
+export interface KitchenLoadInfo {
+  currentOrders: number;
+  averagePreparationTime: number;
 }
 
 // WebSocket events
@@ -347,7 +318,7 @@ export interface OrderStatusUpdateEvent extends WebSocketEvent {
 
 export interface NewOrderEvent extends WebSocketEvent {
   type: 'new_order';
-  data: OrderWithDetails;
+  data: OrderDetails;
 }
 
 export interface StaffActionEvent extends WebSocketEvent {
@@ -375,6 +346,12 @@ export interface PopularItem {
   totalQuantity: number;
   totalRevenue: number;
   orderCount: number;
+}
+
+export interface HourlyOrderDistribution {
+  hour: number;
+  orderCount: number;
+  totalRevenue: number;
 }
 
 export interface KitchenEfficiency {
@@ -436,6 +413,6 @@ export class AccessDeniedError extends AppError {
 
 export class InsufficientPermissionsError extends AppError {
   constructor(message?: string) {
-    super(message || 'Insufficient permissions for this action', HTTP_STATUS.FORBIDDEN);
+    super(message || ERROR_MESSAGES.NO_PERMISSION, HTTP_STATUS.FORBIDDEN);
   }
 }

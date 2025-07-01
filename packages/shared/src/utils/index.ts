@@ -1,4 +1,4 @@
-import { SpiceLevel, OrderStatus } from '../types';
+import type { SpiceLevel, OrderStatus } from '../types';
 
 // Order utilities
 export const generateOrderNumber = (): string => {
@@ -29,22 +29,22 @@ export const estimatePreparationTime = (
 
 export const getOrderStatusText = (status: OrderStatus): string => {
   const texts = {
-    [OrderStatus.PENDING]: 'Pending',
-    [OrderStatus.CONFIRMED]: 'Confirmed',
-    [OrderStatus.PREPARING]: 'Preparing',
-    [OrderStatus.READY]: 'Ready',
-    [OrderStatus.SERVED]: 'Served',
-    [OrderStatus.CANCELLED]: 'Cancelled'
+    ['pending']: 'Pending',
+    ['confirmed']: 'Confirmed',
+    ['preparing']: 'Preparing',
+    ['ready']: 'Ready',
+    ['served']: 'Served',
+    ['cancelled']: 'Cancelled'
   };
   return texts[status] || 'Unknown';
 };
 
 export const getSpiceLevelText = (level: SpiceLevel): string => {
   const texts = {
-    [SpiceLevel.NONE]: 'No Spice',
-    [SpiceLevel.REGULAR]: 'Regular 🌶️🌶️',
-    [SpiceLevel.SPICY]: 'Spicy 🌶️🌶️🌶️',
-    [SpiceLevel.VERY_SPICY]: 'Very Spicy 🌶️🌶️🌶️🌶️'
+    ['none']: 'No Spice',
+    ['regular']: 'Regular 🌶️🌶️',
+    ['spicy']: 'Spicy 🌶️🌶️🌶️',
+    ['very_spicy']: 'Very Spicy 🌶️🌶️🌶️🌶️'
   };
   return texts[level] || 'No Spice';
 };

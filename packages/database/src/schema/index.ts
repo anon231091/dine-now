@@ -13,42 +13,18 @@ import {
   bigint,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { GROUP_TYPES, ITEM_SIZES, ORDER_STATUS, SPICE_LEVELS, STAFF_ROLES } from '@dine-now/shared';
 
 // Enums
-export const orderStatusEnum = pgEnum('order_status', [
-  'pending',
-  'confirmed', 
-  'preparing',
-  'ready',
-  'served',
-  'cancelled'
-]);
+export const orderStatusEnum = pgEnum('order_status', ORDER_STATUS);
 
-export const spiceLevelEnum = pgEnum('spice_level', [
-  'none',
-  'regular',
-  'spicy',
-  'very_spicy'
-]);
+export const spiceLevelEnum = pgEnum('spice_level', SPICE_LEVELS);
 
-export const itemSizeEnum = pgEnum('item_size', [
-  'small',
-  'regular',
-  'large'
-]);
+export const itemSizeEnum = pgEnum('item_size', ITEM_SIZES);
 
-export const staffRoleEnum = pgEnum('staff_role', [
-  'admin',
-  'manager',
-  'kitchen',
-  'service'
-]);
+export const staffRoleEnum = pgEnum('staff_role', STAFF_ROLES);
 
-export const telegramGroupEnum = pgEnum('telegram_group_type', [
-  'management',
-  'kitchen',
-  'service'
-]);
+export const telegramGroupEnum = pgEnum('telegram_group_type', GROUP_TYPES);
 
 // Staff
 export const staff = pgTable('staff', {
