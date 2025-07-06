@@ -11,6 +11,7 @@ import { corsOptions } from '../middleware';
 export const CUSTOMER_ROOM_PREFIX: string = 'customer_';
 export const STAFF_ROOM_PREFIX: string = 'staff_';
 export const KITCHEN_ROOM_PREFIX: string = 'kitchen_';
+export const SERVICE_ROOM_PREFIX: string = 'service_';
 export const RESTAURANT_ROOM_PREFIX: string = 'restaurant_';
 export const TABLE_ROOM_PREFIX: string = 'table_';
 
@@ -349,7 +350,7 @@ class WebSocketServer {
   }
 
   public broadcastToUser(userId: ID, userType: UserType, event: string, data: any) {
-    const room = userType === UserType.General ? `${CUSTOMER_ROOM_PREFIX}${userId}` : `${STAFF_ROOM_PREFIX}${userId}`;
+    const room = userType === 'general' ? `${CUSTOMER_ROOM_PREFIX}${userId}` : `${STAFF_ROOM_PREFIX}${userId}`;
     this.broadcastToRoom(room, event, data);
   }
 

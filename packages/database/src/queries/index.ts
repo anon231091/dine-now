@@ -8,7 +8,6 @@ import {
 } from '../utils/transforms';
 
 import type { 
-  OrderStatus, 
   Restaurant,
   RestaurantDetails,
   Table,
@@ -43,8 +42,9 @@ import type {
   VariantWithMenuItem,
 } from '@dine-now/shared';
 import type {
-  CreateOrderDto,
   MenuSearchQuery,
+  OrderDataDto,
+  OrderSearchQuery,
   PaginationQuery,
   RegisterMenuCategoryDto,
   RegisterMenuItemDto,
@@ -885,7 +885,7 @@ export const menuQueries = {
 // Order queries updated for variants and direct telegram ID
 export const orderQueries = {
   // Create new order with variants
-  createOrder: async (data: CreateOrderDto): Promise<OrderDetails | undefined> => {
+  createOrder: async (data: OrderDataDto): Promise<OrderDetails | undefined> => {
     const db = getDatabase();
     const { orderItems, ...orderData } = data;
     
@@ -986,20 +986,33 @@ export const orderQueries = {
   },
 
   // Get orders by restaurant and status
-  getOrdersByRestaurantAndStatus: async (
-    restaurantId: ID, 
-    status?: OrderStatus[],
-    pagination: PaginationQuery = { page: 1, limit: 20 },
-  ): Promise<OrderWithTable[]> => {
+  getOrdersByQuery: async (restaurantId: ID, query: OrderSearchQuery): Promise<OrderWithTable[]> => {
     const db = getDatabase();
+    const { customerId, status, dateFrom, dateTo, sortBy, sortOrder, pagination } = query;
     
+    const page = pagination?.limit ?? 1;
+    const limit = pagination?.limit ?? 20;
     const conditions = [eq(schema.orders.restaurantId, restaurantId)];
+
+    if (customerId) {
+      conditions.push(eq(schema.orders.customerTelegramId, BigInt(customerId)));
+    }
     
     if (status && status.length > 0) {
       conditions.push(inArray(schema.orders.status, status));
     }
+
+    if (dateFrom) {
+      conditions.push(gte(schema.orders.createdAt, new Date(dateFrom)));
+    }
+
+    if (dateTo) {
+      conditions.push(lte(schema.orders.createdAt, new Date(dateTo)));
+    }
+
+    const orderBy = (sortOrder === 'desc') ? desc(schema.orders[sortBy]) : asc(schema.orders[sortBy]);
     
-    const offset = (pagination.page - 1) * pagination.limit;
+    const offset = (page - 1) * limit;
     const rows = await db
       .select({
         order: schema.orders,
@@ -1008,8 +1021,8 @@ export const orderQueries = {
       .from(schema.orders)
       .innerJoin(schema.tables, eq(schema.orders.tableId, schema.tables.id))
       .where(and(...conditions))
-      .orderBy(desc(schema.orders.createdAt))
-      .limit(pagination.limit)
+      .orderBy(orderBy)
+      .limit(limit)
       .offset(offset);
     
     return rows.map(row => ({
@@ -1019,12 +1032,13 @@ export const orderQueries = {
   },
 
   // Update order status
-  updateOrderStatus: async (data: UpdateOrderStatusDto): Promise<Order | undefined> => {
-    const { orderId, status } = data;
+  updateOrderStatus: async (orderId: ID, data: UpdateOrderStatusDto): Promise<Order | undefined> => {
+    const { status, notes } = data;
     const db = getDatabase();
     
     const updateData: any = {
       status,
+      notes,
       updatedAt: new Date(),
     };
     

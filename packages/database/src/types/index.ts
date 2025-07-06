@@ -35,6 +35,8 @@ export type UpdateMenuItemDto = z.infer<typeof validators.UpdateMenuItem>;
 export type RegisterMenuItemVariantDto = z.infer<typeof validators.RegisterMenuItemVariant>;
 export type UpdateMenuItemVariantDto = z.infer<typeof validators.UpdateMenuItemVariant>;
 
+export type OrderItemDto = z.infer<typeof validators.OrderItem>;
+export type OrderDataDto = z.infer<typeof validators.OrderData>;
 export type CreateOrderDto = z.infer<typeof validators.CreateOrder>;
 export type UpdateOrderStatusDto = z.infer<typeof validators.UpdateOrderStatus>;
 

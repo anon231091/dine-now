@@ -114,46 +114,6 @@ export const BUSINESS_RULES = {
   ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
 } as const;
 
-// Role permissions mapping
-export const ROLE_PERMISSIONS = {
-  ['super-admin']: [
-    'restaurants:create',
-    'restaurants:read',
-    'restaurants:update', 
-    'restaurants:delete',
-    'staff:assign_admin',
-    'system:manage'
-  ],
-  ['admin']: [
-    'restaurant:manage',
-    'menu:manage',
-    'tables:manage',
-    'staff:manage',
-    'orders:read',
-    'analytics:read',
-    'telegram_groups:manage'
-  ],
-  ['manager']: [
-    'restaurant:read',
-    'menu:manage',
-    'tables:manage',
-    'orders:read',
-    'analytics:read',
-    'telegram_groups:read'
-  ],
-  ['kitchen']: [
-    'orders:read',
-    'orders:update_status',
-    'menu:toggle_availability'
-  ],
-  ['service']: [
-    'orders:read',
-    'orders:update_status',
-    'menu:toggle_availability',
-    'orders:place_for_customer'
-  ]
-} as const;
-
 // Status Messages
 export const STATUS_MESSAGES = {
   ORDER_PLACED: 'Your order has been placed successfully!',

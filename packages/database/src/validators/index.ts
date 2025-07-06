@@ -2,9 +2,8 @@ import { createSchemaFactory } from 'drizzle-zod';
 import { z } from 'zod/v4';
 import {
   restaurants, tables, staff, menuCategories, menuItems, menuItemVariants,
-  orderStatusEnum, itemSizeEnum, telegramGroups, orders, orderItems,
-  kitchenLoads,
-  staffRoleEnum
+  itemSizeEnum, telegramGroups, orders, orderItems, kitchenLoads, staffRoleEnum,
+  orderStatusEnum
 } from '../schema';
 import { BUSINESS_RULES, REGEX } from '@dine-now/shared';
 
@@ -169,34 +168,48 @@ const OrderItemInputSchema = createInsertSchema(orderItems, {
 })
 .omit({
   id: true,
-  orderId: true,
+  orderId: true
 });
 
-// Order API schemas
-const CreateOrderSchema = createInsertSchema(orders, {
+const OrderDataSchema = createInsertSchema(orders, {
+  customerTelegramId: TelegramIdSchema,
   restaurantId: IdSchema,
   tableId: IdSchema,
-  customerTelegramId: TelegramIdSchema,
   orderNumber: OrderNumberSchema,
   totalAmount: PriceSchema,
-  notes: (schema) => schema.max(500).optional(),
-}).extend({
-  orderItems: z
-    .array(OrderItemInputSchema)
-    .min(BUSINESS_RULES.MIN_ORDER_VALUE, 'At least one item is required')
-    .max(BUSINESS_RULES.MAX_ITEMS_PER_ORDER),
-}).omit({
+  notes: (schema) => schema.max(200).optional(),
+})
+.omit({
   id: true,
-  actualPreparationMinutes: true,
+  status: true,
   createdAt: true,
   updatedAt: true,
   confirmedAt: true,
   readyAt: true,
   servedAt: true
+})
+.extend({
+  orderItems: z
+    .array(OrderItemInputSchema)
+    .min(BUSINESS_RULES.MIN_ORDER_VALUE, 'At least one item is required')
+    .max(BUSINESS_RULES.MAX_ITEMS_PER_ORDER),
 });
 
+// Order API schemas
+const CreateOrderSchema = createInsertSchema(orders, {
+  tableId: IdSchema,
+  notes: (schema) => schema.max(200).optional(),
+}).pick({
+  tableId: true,
+  notes: true
+}).extend({
+  orderItems: z
+    .array(OrderItemInputSchema.omit({ subtotal: true }))
+    .min(BUSINESS_RULES.MIN_ORDER_VALUE, 'At least one item is required')
+    .max(BUSINESS_RULES.MAX_ITEMS_PER_ORDER),
+})
+
 const UpdateOrderStatusSchema = z.object({
-  orderId: IdSchema,
   status: z.enum(orderStatusEnum.enumValues),
   notes: z.string().max(500).optional(),
 });
@@ -231,8 +244,7 @@ const MenuSearchSchema = z.object({
 
 const OrderSearchSchema = z.object({
   customerId: IdSchema.optional(),
-  tableId: IdSchema.optional(),
-  status: z.enum(['pending', 'confirmed', 'preparing', 'ready', 'served', 'cancelled']).optional(),
+  status: z.array(z.enum(orderStatusEnum.enumValues)).optional(),
   dateFrom: z.iso.datetime().optional(),
   dateTo: z.iso.datetime().optional(),
   sortBy: z.enum(['createdAt', 'totalAmount', 'status']).default('createdAt'),
@@ -347,6 +359,7 @@ export const validators = {
   UpdateMenuItemVariant: UpdateMenuItemVariantSchema,
   
   OrderItem: OrderItemInputSchema,
+  OrderData: OrderDataSchema,
   CreateOrder: CreateOrderSchema,
   UpdateOrderStatus: UpdateOrderStatusSchema,
   
