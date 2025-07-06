@@ -2,6 +2,7 @@ import { ERROR_MESSAGES, GROUP_TYPES, HTTP_STATUS, ITEM_SIZES, ORDER_STATUS, SPI
 
 // Base types
 export type ID = string;
+export type TelegramId = bigint;
 export type Timestamp = Date;
 
 export type UserType = typeof USER_TYPES[number];
@@ -88,7 +89,6 @@ export interface MenuItem {
   isAvailable: boolean;
   isActive: boolean;
   sortOrder: number;
-  variants: MenuItemVariant[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -152,103 +152,33 @@ export interface KitchenLoad {
   createdAt: Timestamp;
 }
 
-// API Response types
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
-
-export interface PaginationParams {
-  page: number;
-  limit: number;
-}
-
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-// DTOs (Data Transfer Objects)
-export interface CreateRestaurantDto {
-  name: string;
-  nameKh?: string;
-  description?: string;
-  descriptionKh?: string;
-  address: string;
-  phoneNumber: string;
-  adminTelegramId?: bigint; // Optional - can be assigned later
-}
-
-export interface AssignRestaurantAdminDto {
-  restaurantId: ID;
-  telegramId: bigint;
-}
-
-export interface CreateStaffDto {
-  restaurantId: ID;
-  telegramId: bigint;
-  role: StaffRole;
-}
-
-export interface CreateOrderDto {
-  customerTelegramId: bigint;
-  customerName: string;
-  restaurantId: ID;
-  tableId: ID;
-  orderNumber: string;
-  totalAmount: string;
-  estimatedPreparationMinutes: number;
-  orderItems: {
-    menuItemId: ID;
-    variantId: ID;
-    quantity: number;
-    spiceLevel?: SpiceLevel;
-    notes?: string;
-    subtotal: string;
-  }[];
-  notes?: string;
-}
-
-export interface UpdateOrderStatusDto {
-  orderId: ID;
-  status: OrderStatus;
-}
-
-export interface CreateTelegramGroupDto {
-  chatId: bigint;
-  restaurantId: ID;
-  groupType: GroupType;
-}
-
-export interface UpdateTelegramGroupDto {
-  groupType: GroupType;
-  isActive: boolean;
-}
-
-export interface UpdateMenuItemAvailabilityDto {
-  menuItemId: ID;
-  isAvailable: boolean;
-  variantId?: ID; // Optional - to toggle specific variant
-}
-
 // Extended types
-export interface MenuItemWithCategory extends MenuItem {
+export interface MenuItemDetails extends MenuItem {
+  variants: MenuItemVariant[];
+}
+
+export interface MenuItemWithRestaurant extends MenuItem {
+  restaurant: Restaurant;
+}
+
+export interface MenuCategoryWithRestaurant extends MenuCategory {
+  restaurant: Restaurant;
+}
+
+export interface MenuCategoryWithItems extends MenuCategory {
+  items: MenuItem[];
+}
+
+export interface MenuCategoryWithItemDetails extends MenuCategory {
+  items: MenuItemDetails[];
+}
+
+export interface MenuItemDetailsWithCategory extends MenuItemDetails {
   category: MenuCategory;
 }
 
-export interface MenuItemWithRestaurant extends MenuItemWithCategory {
-  restaurant: Restaurant;
-} 
-
-export interface MenuItemVariantWithCategory extends MenuItemVariant {
+export interface VariantWithMenuItem extends MenuItemVariant {
   item: MenuItem;
-  category: MenuCategory;
 }
 
 export interface OrderDetails extends Order {
@@ -277,13 +207,20 @@ export interface StaffWithRestaurant extends Staff {
   restaurant: Restaurant;
 }
 
-export interface RestaurantWithStaff extends Restaurant {
-  staff: Staff[];
-  telegramGroups?: TelegramGroup[];
+export interface RestaurantDetails extends Restaurant {
+  tables: Table[];
 }
 
-export interface RestaurantWithTables extends Restaurant {
-  tables: Table[];
+export interface RestaurantWithCategories extends Restaurant {
+  categories: MenuCategory[];
+}
+
+export interface RestaurantWithStaff extends Restaurant {
+  staff: Staff[];
+}
+
+export interface RestaurantWithTelegramGroups extends Restaurant {
+  groups: TelegramGroup[];
 }
 
 export interface TableWithRestaurant extends Table {
@@ -297,6 +234,69 @@ export interface TelegramGroupWithRestaurant extends TelegramGroup {
 export interface KitchenLoadInfo {
   currentOrders: number;
   averagePreparationTime: number;
+  lastUpdated: Timestamp;
+}
+
+export interface KitchenLoadStatus extends KitchenLoadInfo {
+  ordersByStatus: Record<OrderStatus, number>;
+}
+
+// Analytics types
+export interface OrderStats {
+  totalOrders: number;
+  totalRevenue: number;
+  averageOrderValue: number;
+  cancelledOrders: number;
+  completedOrders: number;
+}
+
+export interface PopularItem {
+  menuItem: MenuItem;
+  variant: MenuItemVariant;
+  totalQuantity: number;
+  totalRevenue: number;
+  orderCount: number;
+}
+
+export interface HourlyOrderDistribution {
+  hour: number;
+  orderCount: number;
+  totalRevenue: number;
+}
+
+export interface Analytics {
+  orderStats: OrderStats;
+  popularItems: PopularItem[];
+  hourlyDistribution: HourlyOrderDistribution[];
+  period: {
+    from: Date;
+    to: Date;
+    days: number;
+  }
+}
+
+export interface KitchenEfficiency {
+  averagePreparationTime: number;
+  onTimeOrders: number;
+  lateOrders: number;
+  currentLoad: number;
+}
+
+// API Response types
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 // WebSocket events
@@ -330,36 +330,6 @@ export interface StaffActionEvent extends WebSocketEvent {
   };
 }
 
-// Analytics types
-export interface OrderStats {
-  totalOrders: number;
-  totalRevenue: number;
-  averageOrderValue: number;
-  cancelledOrders: number;
-  completedOrders: number;
-}
-
-export interface PopularItem {
-  menuItem: MenuItem;
-  variant: MenuItemVariant;
-  totalQuantity: number;
-  totalRevenue: number;
-  orderCount: number;
-}
-
-export interface HourlyOrderDistribution {
-  hour: number;
-  orderCount: number;
-  totalRevenue: number;
-}
-
-export interface KitchenEfficiency {
-  averagePreparationTime: number;
-  onTimeOrders: number;
-  lateOrders: number;
-  currentLoad: number;
-}
-
 // Error types (keeping the same as before)
 export class AppError extends Error {
   public statusCode: number;
@@ -374,9 +344,9 @@ export class AppError extends Error {
   }
 }
 
-export class NotFoundError extends AppError {
+export class BadRequestError extends AppError {
   constructor(message?: string) {
-    super(message || ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+    super(message || ERROR_MESSAGES.VALIDATION_ERROR, HTTP_STATUS.BAD_REQUEST);
   }
 }
 
@@ -386,32 +356,26 @@ export class UnauthorizedError extends AppError {
   }
 }
 
-export class UnprocessableError extends AppError {
-  constructor(message?: string) {
-    super(message || ERROR_MESSAGES.UNPROCESSABLE, HTTP_STATUS.UNPROCESSABLE_ENTITY);
-  }
-}
-
-export class BadRequestError extends AppError {
-  constructor(message?: string) {
-    super(message || ERROR_MESSAGES.VALIDATION_ERROR, HTTP_STATUS.BAD_REQUEST);
-  }
-}
-
-export class ServerError extends AppError {
-  constructor(message?: string) {
-    super(message || ERROR_MESSAGES.SERVER_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
-  }
-}
-
 export class AccessDeniedError extends AppError {
   constructor(message?: string) {
     super(message || ERROR_MESSAGES.ACCESS_DENIED, HTTP_STATUS.FORBIDDEN);
   }
 }
 
-export class InsufficientPermissionsError extends AppError {
+export class NotFoundError extends AppError {
   constructor(message?: string) {
-    super(message || ERROR_MESSAGES.NO_PERMISSION, HTTP_STATUS.FORBIDDEN);
+    super(message || ERROR_MESSAGES.NOT_FOUND, HTTP_STATUS.NOT_FOUND);
+  }
+}
+
+export class UnprocessableError extends AppError {
+  constructor(message?: string) {
+    super(message || ERROR_MESSAGES.UNPROCESSABLE, HTTP_STATUS.UNPROCESSABLE_ENTITY);
+  }
+}
+
+export class ServerError extends AppError {
+  constructor(message?: string) {
+    super(message || ERROR_MESSAGES.SERVER_ERROR, HTTP_STATUS.INTERNAL_SERVER_ERROR);
   }
 }

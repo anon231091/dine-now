@@ -1,23 +1,24 @@
 import { Router, Response } from 'express';
 import { queries, validators } from '@dine-now/database';
-import { HTTP_STATUS } from '@dine-now/shared';
+import { HTTP_STATUS, UnprocessableError } from '@dine-now/shared';
 import { 
   asyncHandler, 
   validateParams,
   validateBody,
-  authStaffMiddleware,
+  authServiceMiddleware,
   requireRole,
   requireRestaurantAccess,
   AuthenticatedRequest 
 } from '../middleware';
-import { logInfo } from '../utils/logger';
+import { logError, logInfo } from '../utils/logger';
 import { broadcastKitchenUpdate } from '../websocket';
+import { getBotNotifier } from '../services/bot-notifier';
 
 const router: Router = Router();
 
 router.get(
   '/load/:restaurantId',
-  authStaffMiddleware,
+  authServiceMiddleware,
   requireRestaurantAccess,
   validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -41,7 +42,7 @@ router.get(
 
 router.put(
   '/load/:restaurantId',
-  authStaffMiddleware,
+  authServiceMiddleware,
   requireRole(['admin', 'manager', 'kitchen']),
   requireRestaurantAccess,
   validateParams(validators.RestaurantParams),
@@ -57,7 +58,21 @@ router.put(
       averagePreparationTime,
     });
 
+    if (!updatedLoad) {
+      let error = new UnprocessableError("Failed to update kitchen load");
+      logError(error, { restaurantId });
+      throw error
+    }
+
     broadcastKitchenUpdate(restaurantId!, 'kitchen_load_update', updatedLoad);
+
+    // Notify bot service about kitchen load update
+    const botNotifier = getBotNotifier();
+    await botNotifier.notifyKitchenLoadUpdate(restaurantId!, {
+      currentOrders: updatedLoad.currentOrders,
+      averagePreparationTime: updatedLoad.averagePreparationTime,
+      estimatedWaitTime: updatedLoad.currentOrders * 5 // Simple estimation
+    });
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -68,7 +83,7 @@ router.put(
 
 router.post(
   '/calculate/:restaurantId',
-  authStaffMiddleware,
+  authServiceMiddleware,
   requireRestaurantAccess,
   validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -81,7 +96,21 @@ router.post(
     // Update the stored load with calculated values
     const updatedLoad = await queries.kitchen.updateKitchenLoad(restaurantId!, calculatedLoad);
 
+    if (!updatedLoad) {
+      let error = new UnprocessableError("Failed to calculate kitchen load");
+      logError(error, { restaurantId });
+      throw error
+    }
+
     broadcastKitchenUpdate(restaurantId!, 'kitchen_load_update', updatedLoad);
+
+    // Notify bot service about kitchen load update
+    const botNotifier = getBotNotifier();
+    await botNotifier.notifyKitchenLoadUpdate(restaurantId!, {
+      currentOrders: updatedLoad.currentOrders,
+      averagePreparationTime: updatedLoad.averagePreparationTime,
+      estimatedWaitTime: updatedLoad.currentOrders * 5
+    });
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,

@@ -17,6 +17,7 @@ import {
   corsOptions,
   healthCheck,
   requestTiming,
+  authMiddleware,
 } from './middleware';
 
 // Import routes
@@ -181,7 +182,7 @@ app.get('/api', (_req, res) => {
 });
 
 // API Routes
-app.use('/api', apiRoutes);
+app.use('/api', authMiddleware, apiRoutes);
 
 // Global error handler
 app.use(errorHandler);

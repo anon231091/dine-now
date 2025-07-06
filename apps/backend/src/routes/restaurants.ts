@@ -1,15 +1,29 @@
 import { Router, Response } from 'express';
 import { queries, validators } from '@dine-now/database';
-import { HTTP_STATUS, NotFoundError } from '@dine-now/shared';
+import type { RegisterRestaurantDto, StaffQuery, UpdateRestaurantDto, } from '@dine-now/database';
+import {
+  Analytics, ApiResponse, BadRequestError, HTTP_STATUS,
+  KitchenLoadStatus, NotFoundError, OrderStatus, Restaurant, RestaurantDetails,
+  RestaurantWithStaff, RestaurantWithTelegramGroups, 
+} from '@dine-now/shared';
+
 import { 
   asyncHandler, 
   validateParams,
   validateQuery,
-  AuthenticatedRequest 
+  AuthenticatedRequest, 
+  onlySuperAdmin,
+  validateBody,
+  requireSuperAdminOrAdminOf,
+  requireRestaurantAccess,
+  requireRole,
 } from '../middleware';
 import { logInfo } from '../utils/logger';
+import tableRoutes from './table';
 
 const router: Router = Router();
+
+router.use('/table', tableRoutes);
 
 /**
  * @swagger
@@ -69,7 +83,8 @@ const router: Router = Router();
  */
 router.get(
   '/',
-  asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
+  onlySuperAdmin,
+  asyncHandler(async (_req: AuthenticatedRequest, res: Response<ApiResponse<Restaurant[]>>) => {
     logInfo('Fetching active restaurants');
 
     const restaurants = await queries.restaurant.getActiveRestaurants();
@@ -84,6 +99,43 @@ router.get(
 /**
  * @swagger
  * /api/restaurants/{restaurantId}:
+ *   get:
+ *     summary: Get restaurant info
+ *     tags: [Restaurants]
+ *     parameters:
+ *       - in: path
+ *         name: restaurantId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Restaurant ID
+ *     responses:
+ *       200:
+ *         description: Restaurant info
+ *       404:
+ *         description: Restaurant not found
+ */
+router.get(
+  '/:restaurantId',
+  validateParams(validators.RestaurantParams),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<Restaurant>>) => {
+    const { restaurantId } = req.params;
+
+    logInfo('Fetching restaurant info', { restaurantId });
+
+    const restaurant = await queries.restaurant.getRestaurantById(restaurantId!);
+    if (!restaurant) throw new NotFoundError('Restaurant not found');
+
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: restaurant,
+    });
+  })
+);
+
+/**
+ * @swagger
+ * /api/restaurants/{restaurantId}/details:
  *   get:
  *     summary: Get restaurant details
  *     tags: [Restaurants]
@@ -101,18 +153,16 @@ router.get(
  *         description: Restaurant not found
  */
 router.get(
-  '/:restaurantId',
+  '/:restaurantId/details',
   validateParams(validators.RestaurantParams),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  requireSuperAdminOrAdminOf,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<RestaurantDetails>>) => {
     const { restaurantId } = req.params;
 
     logInfo('Fetching restaurant details', { restaurantId });
 
-    const restaurant = await queries.restaurant.getRestaurantById(restaurantId!);
-
-    if (!restaurant) {
-      throw new NotFoundError('Restaurant not found');
-    }
+    const restaurant = await queries.restaurant.getRestaurantDetails(restaurantId!);
+    if (!restaurant) throw new NotFoundError('Restaurant not found');
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
@@ -121,78 +171,125 @@ router.get(
   })
 );
 
-/**
- * @swagger
- * /api/restaurants/{restaurantId}/tables:
- *   get:
- *     summary: Get restaurant tables
- *     tags: [Restaurants]
- *     parameters:
- *       - in: path
- *         name: restaurantId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Restaurant tables
- */
-router.get(
-  '/:restaurantId/tables',
-  validateParams(validators.RestaurantParams),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { restaurantId } = req.params;
+router.post(
+  '/',
+  validateBody(validators.RegisterRestaurant),
+  onlySuperAdmin,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<Restaurant>>) => {
+    logInfo('Onboarding new restaurant');
 
-    logInfo('Fetching restaurant tables', { restaurantId });
+    const restaurant = await queries.restaurant.registerRestaurant(req.body as RegisterRestaurantDto);
+    if (!restaurant) {
+      throw new BadRequestError('No restaurant has been created');
+    }
 
-    const tables = await queries.table.getTablesByRestaurant(restaurantId!);
-
-    return res.status(HTTP_STATUS.OK).json({
+    res.status(HTTP_STATUS.CREATED).json({
       success: true,
-      data: tables,
+      data: restaurant,
     });
   })
 );
 
-/**
- * @swagger
- * /api/restaurants/table/{tableId}:
- *   get:
- *     summary: Get table and restaurant info by its ID
- *     tags: [Restaurants]
- *     parameters:
- *       - in: path
- *         name: tableId
- *         required: true
- *         schema:
- *           type: string
- *         description: Table ID
- *     responses:
- *       200:
- *         description: Table and restaurant information
- *       404:
- *         description: Table not found or inactive
- */
-router.get(
-  '/table/:tableId',
-  validateParams(validators.TableParams),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { tableId } = req.params;
+router.put(
+  '/:restaurantId',
+  validateParams(validators.RestaurantParams),
+  validateBody(validators.UpdateRestaurant),
+  requireRestaurantAccess,
+  requireRole(['admin', 'manager']),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<Restaurant>>) => {
+    const { restaurantId } = req.params;
+    logInfo('Updating restaurant info', { restaurantId });
 
-    logInfo('Fetching table by ID', { tableId });
+    const restaurant = await queries.restaurant.updateRestaurant(restaurantId!, req.body as UpdateRestaurantDto);
+    if (!restaurant) throw new BadRequestError('The restaurant has not been updated');
 
-    const tableData = await queries.table.getTableById(tableId!);
+    res.status(HTTP_STATUS.CREATED).json({
+      success: true,
+      data: restaurant,
+    });
+  })
+);
 
-    if (!tableData) {
-      throw new NotFoundError('Table not found or inactive');
+router.patch(
+  '/:restaurantId',
+  validateParams(validators.RestaurantParams),
+  requireRestaurantAccess,
+  requireRole(['admin', 'manager']),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<Restaurant>>) => {
+    const { restaurantId } = req.params;
+    const restaurant = await queries.restaurant.getRestaurantById(restaurantId!);
+    if (!restaurant) throw new NotFoundError('Restaurant not found');
+    logInfo(`${restaurant.isActive ? 'Deactivating' : 'Activating'} the restaurant`, { restaurantId });
+
+    const toggled = await queries.restaurant.toggleRestaurant(restaurant.id);
+    if (!toggled) throw new BadRequestError();
+
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: toggled
+    })
+  })
+)
+
+router.delete(
+  '/:restaurantId',
+  validateParams(validators.RestaurantParams),
+  onlySuperAdmin,
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<Restaurant>>) => {
+    const { restaurantId } = req.params;
+    logInfo('Deleting restaurant', { restaurantId });
+
+    const restaurant = await queries.restaurant.deleteRestaurant(restaurantId!);
+    if (!restaurant) {
+      throw new BadRequestError('The restaurant has not been deleted');
     }
+
+    res.status(HTTP_STATUS.CREATED).json({
+      success: true,
+      data: restaurant,
+    });
+  })
+);
+
+/// Relation restaurant queries
+
+router.get(
+  '/:restaurantId/staff',
+  validateParams(validators.RestaurantParams),
+  validateQuery(validators.StaffQuery),
+  requireRestaurantAccess,
+  requireRole(['admin', 'manager']),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<RestaurantWithStaff>>) => {
+    const { restaurantId } = req.params;
+
+    logInfo('Fetching restaurant tables', { restaurantId });
+
+    const restaurant = await queries.staff.getStaffByRestaurantId(restaurantId!, req.query as StaffQuery);
+    if (!restaurant) throw new NotFoundError('Restaurant not found');
 
     return res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: {
-        table: tableData.table,
-        restaurant: tableData.restaurant,
-      },
+      data: restaurant,
+    });
+  })
+);
+
+router.get(
+  '/:restaurantId/groups',
+  validateParams(validators.RestaurantParams),
+  requireRestaurantAccess,
+  requireRole(['admin', 'manager']),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<RestaurantWithTelegramGroups>>) => {
+    const { restaurantId } = req.params;
+
+    logInfo('Fetching restaurant telegram groups', { restaurantId });
+
+    const restaurant = await queries.telegramGroup.getGroupsByRestaurant(restaurantId!);
+    if (!restaurant) throw new NotFoundError('Restaurant not found');
+
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      data: restaurant,
     });
   })
 );
@@ -216,7 +313,8 @@ router.get(
 router.get(
   '/:restaurantId/kitchen-status',
   validateParams(validators.RestaurantParams),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  requireRestaurantAccess, // every restaurant staff has access to current kitchen status
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<KitchenLoadStatus>>) => {
     const { restaurantId } = req.params;
 
     logInfo('Fetching kitchen status', { restaurantId });
@@ -224,31 +322,20 @@ router.get(
     // Get current kitchen load
     const kitchenLoad = await queries.kitchen.getKitchenLoad(restaurantId!);
     
-    // Calculate real-time kitchen load
-    const calculatedLoad = await queries.kitchen.calculateKitchenLoad(restaurantId!);
-    
     // Get active orders for more context
     const activeOrders = await queries.order.getActiveOrdersForKitchen(restaurantId!);
     
     // Group active orders by status
     const ordersByStatus = activeOrders.reduce((acc, row) => {
-      const status = row.order.status;
+      const status = row.status;
       if (!acc[status]) acc[status] = 0;
       acc[status]++;
       return acc;
-    }, {} as Record<string, number>);
+    }, {} as Record<OrderStatus, number>);
 
     const kitchenStatus = {
-      currentLoad: kitchenLoad || calculatedLoad,
-      calculatedLoad,
-      activeOrdersCount: calculatedLoad.currentOrders,
+      ...kitchenLoad, 
       ordersByStatus,
-      estimatedWaitTime: Math.max(
-        calculatedLoad.averagePreparationTime,
-        calculatedLoad.currentOrders * 5 // 5 minutes per order in queue
-      ),
-      isOpen: true, // You can add business hours logic here
-      lastUpdated: kitchenLoad?.lastUpdated || new Date(),
     };
 
     return res.status(HTTP_STATUS.OK).json({
@@ -289,10 +376,12 @@ router.get(
 router.get(
   '/:restaurantId/analytics',
   validateParams(validators.RestaurantParams),
-  validateQuery(validators.AnalyticsQuery.omit({ restaurantId: true })),
-  asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  validateQuery(validators.AnalyticsQuery),
+  requireRestaurantAccess,
+  requireRole(['admin', 'manager']),
+  asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<Analytics>>) => {
     const { restaurantId } = req.params;
-    const { dateFrom, dateTo } = req.query as any;
+    const { dateFrom, dateTo, granularity } = req.query as any;
 
     logInfo('Fetching restaurant analytics', { restaurantId, dateFrom, dateTo });
 
@@ -305,6 +394,7 @@ router.get(
       dateFromObj,
       dateToObj
     );
+    if (!orderStats) throw new NotFoundError('No orders between the dates');
 
     // Get popular menu items
     const popularItems = await queries.analytics.getPopularMenuItems(

@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { validate, parse, SignatureInvalidError, SignatureMissingError } from '@telegram-apps/init-data-node';
 import rateLimit from 'express-rate-limit';
-import jwt from 'jsonwebtoken';
 import { ZodError, ZodSchema } from 'zod/v4';
 import { 
   AppError, 
@@ -9,13 +8,11 @@ import {
   ERROR_MESSAGES,
   ENVIRONMENT,
   UnauthorizedError,
-  NotFoundError,
   UnprocessableError,
   UserType,
   ID,
-  ServiceType,
-  ServiceTokenPayload,
-  SERVICE_PERMISSIONS,
+  StaffRole,
+  AccessDeniedError,
 } from '@dine-now/shared';
 import { queries, validateSchema } from '@dine-now/database';
 import config from '../config';
@@ -25,16 +22,15 @@ import { logError, logWarning } from '../utils/logger';
 export interface AuthenticatedRequest extends Request {
   user?: {
     type: UserType;
-    telegramId: string;
+    telegramId: bigint;
     firstName: string;
     lastName: string | undefined;
     username: string | undefined;
     // Staff-specific properties
     id?: ID;
-    role?: string;
+    role?: StaffRole;
     restaurantId?: ID;
   };
-  service?: ServiceTokenPayload,
 }
 
 // Error handling middleware
@@ -70,6 +66,7 @@ export const errorHandler = (
       error: error.name,
       details: error.message
     });
+  // database error
   } else if (error.message.includes('duplicate key')) {
     res.status(HTTP_STATUS.CONFLICT).json({
       success: false,
@@ -129,15 +126,15 @@ export const authMiddleware = async (
 
   switch (authType) {
     case 'tma': 
-      return authGeneralMiddleware(req, res, next);
-    case 'Bearer':
-      return authStaffMiddleware(req, res, next);
+      return authUserMiddleware(req, res, next);
+    // case 'Bearer':
+    //   return authServiceMiddleware(req, res, next);
     default:
       throw new UnprocessableError(`Unsupported authorization method: ${authType}`);
   }
 };
 
-export const authGeneralMiddleware = async (
+const authUserMiddleware = async (
   req: AuthenticatedRequest,
   _res: Response,
   next: NextFunction
@@ -147,156 +144,151 @@ export const authGeneralMiddleware = async (
   // <auth-type> must be "tma", and <auth-data> is Telegram Mini Apps init data.
   const [authType, authData = ''] = (req.headers.authorization || '').split(' ');
 
-  switch (authType) {
-    case 'tma':
-      try { 
-        // Telegram Mini App init data validation
-        validate(authData, config.telegramBotToken, {
-          expiresIn: 3600,
-        });
-
-        const { user } = parse(authData);
-        if (!user) {
-          throw new NotFoundError('No user data in init data');
-        }
-
-        req.user = {
-          telegramId: user.id.toString(),
-          firstName: user.first_name,
-          lastName: user.last_name,
-          username: user.username,
-          type: UserType.General,
-        };
-
-        return next();
-      } catch (error) {
-        return next(error);
-      }
-    default:
-      throw new UnauthorizedError();
-  }
-}
-
-export const authServiceMiddleware = async (
-  req: AuthenticatedRequest,
-  _res: Response,
-  next: NextFunction
-) => {
-  const [authType, token] = (req.headers.authorization || '').split(' ');
-  
-  if (authType !== 'Bearer' || !token) {
+  if (authType !== 'tma' || !authData) {
     return next(new UnauthorizedError());
   }
 
-  // Check if it's a service token
-  const serviceTokens = {
-    [config.telegramBotServiceToken]: {
-      type: ServiceType.Bot,
-      permissions: SERVICE_PERMISSIONS,
+  try { 
+    // Telegram Mini App init data validation
+    validate(authData, config.telegramBotToken, {
+      expiresIn: 3600,
+    });
+
+    const { user: userData } = parse(authData);
+    if (!userData) {
+      throw new UnauthorizedError('No user data in init data');
     }
-  };
 
-  if (serviceTokens[token]) {
-    req.service = serviceTokens[token];
-    return next();
-  }
+    req.user = {
+      type: 'general',
+      telegramId: BigInt(userData.id),
+      firstName: userData.first_name,
+      lastName: userData.last_name,
+      username: userData.username,
+    };
 
-  // Otherwise, continue with normal JWT auth
-  return next(new UnauthorizedError());
-};
-
-/**
- * Middleware which authorizes the external client for staff user
- */
-export const authStaffMiddleware = async (
-  req: AuthenticatedRequest,
-  _res: Response,
-  next: NextFunction
-) => {
-  const [authType, authData = ''] = (req.headers.authorization || '').split(' ');
-
-  switch (authType) {
-    case 'Bearer': 
-      try {
-        // JWT token validation
-        const decoded = jwt.verify(authData, config.jwtSecret) as any;
-
-        // For staff, verify they still exist and are active
-        const staffData = await queries.staff.getStaffByTelegramId(BigInt(decoded.telegramId));
-        if (!staffData || !staffData.staff.isActive) {
-          throw new NotFoundError('Staff not found or inactive');
-        }
-        
-        req.user = {
-          telegramId: decoded.telegramId.toString(),
-          firstName: staffData.staff.firstName,
-          lastName: staffData.staff.lastName ?? undefined,
-          username: staffData.staff.username ?? undefined,
-          type: UserType.Staff,
-          id: staffData.staff.id,
-          role: staffData.staff.role,
-          restaurantId: staffData.staff.restaurantId,
-        };
-
-        return next();
-      } catch (error) {
-        return next(error);
+    if (userData.id.toString() === config.superAdminTelegramId) {
+      req.user.type = 'super_admin';
+    } else {
+    let staff = await queries.staff.getStaffByTelegramId(req.user.telegramId);
+      if (staff) {
+        req.user.type = 'staff';
+        req.user.id = staff.id;
+        req.user.role = staff.role;
+        req.user.restaurantId = staff.restaurantId;
       }
-    default:
-      throw new UnauthorizedError(`Access denied`);
+    }
+
+    return next();
+  } catch (error) {
+    return next(error);
   }
-};
+}
+
+// export const authServiceMiddleware = async (
+//   req: AuthenticatedRequest,
+//   _res: Response,
+//   next: NextFunction
+// ) => {
+//   const [authType, token] = (req.headers.authorization || '').split(' ');
+//
+//   if (authType !== 'Bearer' || !token) {
+//     return next(new UnauthorizedError());
+//   }
+//
+//   // Check if it's a service token
+//   const serviceTokens = {
+//     [config.telegramBotServiceToken]: {
+//       type: ServiceType.Bot,
+//       permissions: SERVICE_PERMISSIONS,
+//     }
+//   };
+//
+//   if (serviceTokens[token]) {
+//     req.service = serviceTokens[token];
+//     return next();
+//   }
+//
+//   // Otherwise, continue with normal JWT auth
+//   return next(new UnauthorizedError());
+// };
 
 // Role-based authorization
-export const requireRole = (roles: string[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.user?.role) {
-      res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: ERROR_MESSAGES.UNAUTHORIZED,
-      });
+export const requireRole = (roles: StaffRole[]) => {
+  return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
+    if (!req.user) {
+      throw new UnauthorizedError();
     }
 
-    if (req.user?.role && !roles.includes(req.user.role)) {
-      res.status(HTTP_STATUS.FORBIDDEN).json({
-        success: false,
-        error: 'Insufficient permissions',
-      });
+    if (req.user.role && !hasRoleIn(req, roles)) {
+      throw new AccessDeniedError('Insufficient permissions');
     }
 
     next();
   };
 };
 
-// Restaurant access middleware
-export const requireRestaurantAccess = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): void => {
-  const restaurantId = req.params.restaurantId || req.body.restaurantId;
+// Critical action middleware
+export const onlySuperAdmin = (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
+  if (!req.user) {
+    throw new UnauthorizedError();
+  }
+
+  if (!isSuperAdmin(req)) {
+    throw new AccessDeniedError();  
+  }
   
-  if (!restaurantId) {
-    res.status(HTTP_STATUS.BAD_REQUEST).json({
-      success: false,
-      error: 'Restaurant ID is required',
-    });
+  next();
+}
+
+// Restaurant access middleware
+export const requireRestaurantAccess = (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
+  if (!req.user) {
+    throw new UnauthorizedError();
   }
 
   // Staff users must have access to the restaurant
-  if (req.user?.restaurantId && req.user.restaurantId !== restaurantId) {
-    res.status(HTTP_STATUS.FORBIDDEN).json({
-      success: false,
-      error: 'Access denied to this restaurant',
-    });
+  if (req.user.restaurantId && !hasRestaurantAccess(req, req.params.restaurantId!)) {
+    throw new AccessDeniedError('Access denied to this restaurant');
   }
 
   next();
 };
 
+export const requireSuperAdminOrAdminOf = (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
+  if (!req.user) {
+    throw new UnauthorizedError();
+  }
+
+  if (isSuperAdminOrAdminOf(req, req.params.restaurantId!)) {
+    next();
+  } else {
+    throw new AccessDeniedError();
+  }
+}
+
+export const isSuperAdmin = (req: AuthenticatedRequest): boolean => {
+  return req.user?.type === 'super_admin';
+}
+
+export const hasRestaurantAccess = (req: AuthenticatedRequest, restaurantId: ID): boolean => {
+  return req.user?.restaurantId === restaurantId;
+}
+
+export const isSuperAdminOrAdminOf = (req: AuthenticatedRequest, restaurantId: ID): boolean => {
+  return req.user?.type === 'super_admin'
+    || (req.user?.role === 'admin'
+      && hasRestaurantAccess(req, restaurantId));
+}
+
+export const hasRoleIn = (req: AuthenticatedRequest, roles: StaffRole[]): boolean => {
+  if (!req.user?.role) return false;
+  return roles.includes(req.user.role);
+}
+
 // Validation middleware factory
 export const validateBody = <T>(schema: ZodSchema<T>) => {
-  return (req: Request, _res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
     try {
       validateSchema(schema)(req.body);
       next();
@@ -307,7 +299,7 @@ export const validateBody = <T>(schema: ZodSchema<T>) => {
 };
 
 export const validateQuery = <T>(schema: ZodSchema<T>) => {
-  return (req: Request, _res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
     try {
       validateSchema(schema)(req.query);
       next();
@@ -318,7 +310,7 @@ export const validateQuery = <T>(schema: ZodSchema<T>) => {
 };
 
 export const validateParams = <T>(schema: ZodSchema<T>) => {
-  return (req: Request, _res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
     try {
       validateSchema(schema)(req.params);
       next();
@@ -330,7 +322,7 @@ export const validateParams = <T>(schema: ZodSchema<T>) => {
 
 // Async middleware wrapper
 export const asyncHandler = (fn: Function) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 };

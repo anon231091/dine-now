@@ -6,44 +6,288 @@ import {
   transformDatabaseRows,
   transformDatabaseRowWithDecimals
 } from '../utils/transforms';
+
 import type { 
   OrderStatus, 
-  ItemSize, 
-  StaffRole,
-  PaginationParams,
   Restaurant,
-  RestaurantWithStaff,
-  CreateRestaurantDto,
+  RestaurantDetails,
   Table,
   TableWithRestaurant,
   Staff,
   StaffWithRestaurant,
-  CreateStaffDto,
   TelegramGroup,
   TelegramGroupWithRestaurant,
-  CreateTelegramGroupDto,
-  UpdateTelegramGroupDto,
   MenuItemVariant,
   MenuCategory,
-  MenuItemWithCategory,
   MenuItem,
-  MenuItemWithRestaurant,
-  MenuItemVariantWithCategory,
   ID,
-  CreateOrderDto,
   Order,
   OrderItem,
   OrderDetails,
   OrderDetailsWithInfo,
   OrderWithInfo,
   OrderWithTable,
-  UpdateOrderStatusDto,
   KitchenLoad,
   KitchenLoadInfo,
   OrderStats,
   PopularItem,
-  HourlyOrderDistribution
+  HourlyOrderDistribution,
+  TelegramId,
+  RestaurantWithStaff,
+  RestaurantWithTelegramGroups,
+  MenuItemDetails,
+  MenuCategoryWithRestaurant,
+  MenuCategoryWithItems,
+  MenuItemDetailsWithCategory,
+  RestaurantWithCategories,
+  VariantWithMenuItem,
 } from '@dine-now/shared';
+import type {
+  CreateOrderDto,
+  MenuSearchQuery,
+  PaginationQuery,
+  RegisterMenuCategoryDto,
+  RegisterMenuItemDto,
+  RegisterRestaurantDto,
+  RegisterStaffDto,
+  RegisterTableDto,
+  RegisterTelegramGroupDto,
+  StaffQuery,
+  UpdateMenuCategoryDto,
+  UpdateMenuItemDto,
+  UpdateMenuItemVariantDto,
+  UpdateOrderStatusDto,
+  UpdateRestaurantDto,
+  UpdateStaffDto,
+  UpdateTableDto,
+  UpdateTelegramGroupDto
+} from '../types';
+
+// Staff queries
+export const staffQueries = {
+  // Get staff info by ID
+  getStaffById: async (id: ID): Promise<Staff | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select()
+      .from(schema.staff)
+      .where(eq(schema.staff.id, id))
+      .limit(1);
+
+    return result[0] ? transformDatabaseRow(result[0]) : undefined;
+  },
+
+  // Get staff by telegram ID
+  getStaffByTelegramId: async (telegramId: TelegramId): Promise<Staff | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select()
+      .from(schema.staff)
+      .where(and(
+        eq(schema.staff.telegramId, telegramId),
+        eq(schema.staff.isActive, true),
+      ))
+      .limit(1);
+
+    return result[0] ? transformDatabaseRow(result[0]) : undefined;
+  },
+
+  // Get staff details by telegram ID
+  getStaffDetailsByTelegramId: async (telegramId: TelegramId): Promise<StaffWithRestaurant | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select({
+        staff: schema.staff,
+        restaurant: schema.restaurants,
+      })
+      .from(schema.staff)
+      .innerJoin(schema.restaurants, eq(schema.staff.restaurantId, schema.restaurants.id))
+      .where(and(
+        eq(schema.staff.telegramId, telegramId),
+        eq(schema.staff.isActive, true),
+        eq(schema.restaurants.isActive, true)
+      ))
+      .limit(1);
+
+    if (!result[0]) return undefined;
+    return {
+      ...transformDatabaseRow<Staff>(result[0].staff),
+      restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant)
+    }
+  },
+
+  // Get staff by restaurant and role
+  getStaffByRestaurantId: async (restaurantId: ID, query?: StaffQuery): Promise<RestaurantWithStaff | undefined> => {
+    const db = getDatabase();
+
+    const result = await db
+      .select()
+      .from(schema.restaurants)
+      .where(and(
+        eq(schema.restaurants.id, restaurantId),
+        eq(schema.restaurants.isActive, true)
+      ))
+      .limit(1);
+
+    if (!result[0]) return undefined;
+    
+    const conditions = [
+      eq(schema.staff.restaurantId, restaurantId),
+      eq(schema.staff.isActive, true),
+    ];
+    
+    if (query) {
+      const { role } = query;
+      if (role) {
+        conditions.push(eq(schema.staff.role, role));
+      }
+    }
+    
+    const rows = await db
+      .select()
+      .from(schema.staff)
+      .where(and(...conditions))
+      .orderBy(asc(schema.staff.role), asc(schema.staff.telegramId));
+
+    return {
+      ...transformDatabaseRow<Restaurant>(result[0]),
+      staff: transformDatabaseRows<Staff>(rows)
+    }
+  },
+
+  // Register staff member
+  registerStaff: async (data: RegisterStaffDto): Promise<Staff | undefined> => {
+    const db = getDatabase();
+    const [staff] = await db
+      .insert(schema.staff)
+      .values(data)
+      .returning();
+    return staff;
+  },
+
+  // Update staff info
+  updateStaff: async (staffId: ID, data: UpdateStaffDto): Promise<Staff | undefined> => {
+    const db = getDatabase();
+    const [updated] = await db
+      .update(schema.staff)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.staff.id, staffId))
+      .returning();
+    return updated;
+  },
+
+  // Activate/Deactivate staff
+  toggleStaff: async (staffId: ID): Promise<Staff | undefined> => {
+    const db = getDatabase();
+    const [updated] = await db
+      .update(schema.staff)
+      .set({ isActive: !schema.staff.isActive, updatedAt: new Date() })
+      .where(eq(schema.staff.id, staffId))
+      .returning();
+    return updated;
+  },
+};
+
+// Telegram Group queries
+export const telegramGroupQueries = {
+  // Get group info by ID
+  getGroupById: async (id: ID): Promise<TelegramGroup | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select()
+      .from(schema.telegramGroups)
+      .where(eq(schema.telegramGroups.id, id))
+      .limit(1);
+
+    return result[0] ? transformDatabaseRow(result[0]) : undefined;
+  },
+
+  // Get group by chat ID
+  getGroupByChatId: async (chatId: TelegramId): Promise<TelegramGroupWithRestaurant | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select({
+        group: schema.telegramGroups,
+        restaurant: schema.restaurants,
+      })
+      .from(schema.telegramGroups)
+      .innerJoin(schema.restaurants, eq(schema.telegramGroups.restaurantId, schema.restaurants.id))
+      .where(and(
+        eq(schema.telegramGroups.chatId, chatId),
+        eq(schema.telegramGroups.isActive, true)
+      ))
+      .limit(1);
+
+    if (!result[0]) return undefined;
+    return {
+      ...transformDatabaseRow<TelegramGroup>(result[0].group),
+      restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant)
+    }
+  },
+
+  // Get groups by restaurant
+  getGroupsByRestaurant: async (restaurantId: ID): Promise<RestaurantWithTelegramGroups | undefined> => {
+    const db = getDatabase();
+
+    const restaurant = await db
+      .select()
+      .from(schema.restaurants)
+      .where(and(
+        eq(schema.restaurants.id, restaurantId),
+        eq(schema.restaurants.isActive, true)
+      ))
+      .limit(1);
+    
+    if (!restaurant[0]) return undefined;
+
+    const rows = await db
+      .select()
+      .from(schema.telegramGroups)
+      .where(and(
+        eq(schema.telegramGroups.restaurantId, restaurantId),
+        eq(schema.telegramGroups.isActive, true)
+      ))
+      .orderBy(asc(schema.telegramGroups.groupType));
+
+    return {
+      ...transformDatabaseRow<Restaurant>(restaurant[0]),
+      groups: transformDatabaseRows<TelegramGroup>(rows)
+    }
+  },
+
+  // Register group
+  registerGroup: async (data: RegisterTelegramGroupDto): Promise<TelegramGroup | undefined> => {
+    const db = getDatabase();
+    const [group] = await db
+      .insert(schema.telegramGroups)
+      .values(data)
+      .returning();
+    return group ? transformDatabaseRow<TelegramGroup>(group) : undefined;
+  },
+
+  // Update group
+  updateGroup: async (groupId: ID, data: UpdateTelegramGroupDto): Promise<TelegramGroup | undefined> => {
+    const db = getDatabase();
+    const [updated] = await db
+      .update(schema.telegramGroups)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.telegramGroups.id, groupId))
+      .returning();
+    return updated ? transformDatabaseRow<TelegramGroup>(updated) : undefined;
+  },
+
+  // Activate/Deactivate group
+  toggleGroup: async (groupId: ID): Promise<TelegramGroup | undefined> => {
+    const db = getDatabase();
+    const [toggled] = await db
+      .update(schema.telegramGroups)
+      .set({ isActive: !schema.telegramGroups.isActive, updatedAt: new Date() })
+      .where(eq(schema.telegramGroups.id, groupId))
+      .returning();
+
+    return toggled ? transformDatabaseRow(toggled) : undefined;
+  }
+};
 
 // Restaurant queries
 export const restaurantQueries = {
@@ -70,61 +314,37 @@ export const restaurantQueries = {
     return result[0] ? transformDatabaseRow<Restaurant>(result[0]) : undefined;
   },
 
-  // Get restaurant with tables
-  getRestaurantWithTables: async (id: ID) => {
-    const db = getDatabase();
-    const rows = await db
-      .select({
-        restaurant: schema.restaurants,
-        tables: schema.tables,
-      })
-      .from(schema.restaurants)
-      .leftJoin(schema.tables, eq(schema.restaurants.id, schema.tables.restaurantId))
-      .where(and(
-        eq(schema.restaurants.id, id),
-        eq(schema.restaurants.isActive, true)
-      ));
-    
-    return transformDatabaseRows(rows);
-  },
-
   // Get restaurant with staff and groups
-  getRestaurantWithDetails: async (id: ID): Promise<RestaurantWithStaff | undefined> => {
+  getRestaurantDetails: async (id: ID): Promise<RestaurantDetails | undefined> => {
     const db = getDatabase();
-    
+
     const restaurant = await db
       .select()
       .from(schema.restaurants)
-      .where(eq(schema.restaurants.id, id))
+      .where(and(
+        eq(schema.restaurants.id, id),
+        eq(schema.restaurants.isActive, true)
+      ))
       .limit(1);
     
     if (!restaurant[0]) return undefined;
-    
-    const staff = await db
+    const tables = await db
       .select()
-      .from(schema.staff)
+      .from(schema.tables)
       .where(and(
-        eq(schema.staff.restaurantId, id),
-        eq(schema.staff.isActive, true)
-      ));
-    
-    const telegramGroups = await db
-      .select()
-      .from(schema.telegramGroups)
-      .where(and(
-        eq(schema.telegramGroups.restaurantId, id),
-        eq(schema.telegramGroups.isActive, true)
-      ));
+        eq(schema.tables.restaurantId, id),
+        eq(schema.tables.isActive, true)
+      ))
+      .orderBy(asc(schema.tables.number));
     
     return {
-      ...transformDatabaseRow<Restaurant>(restaurant[0]),
-      staff,
-      telegramGroups
+      ...transformDatabaseRow<Restaurant>(restaurant),
+      tables: transformDatabaseRows<Table>(tables)
     };
   },
 
-  // Create restaurant
-  createRestaurant: async (data: CreateRestaurantDto): Promise<Restaurant | undefined> => {
+  // Register restaurant
+  registerRestaurant: async (data: RegisterRestaurantDto): Promise<Restaurant | undefined> => {
     const db = getDatabase();
     const [restaurant] = await db
       .insert(schema.restaurants)
@@ -134,7 +354,7 @@ export const restaurantQueries = {
   },
 
   // Update restaurant
-  updateRestaurant: async (id: ID, data: Partial<CreateRestaurantDto>): Promise<Restaurant | undefined> => {
+  updateRestaurant: async (id: ID, data: UpdateRestaurantDto): Promise<Restaurant | undefined> => {
     const db = getDatabase();
     const [updated] = await db
       .update(schema.restaurants)
@@ -143,12 +363,34 @@ export const restaurantQueries = {
       .returning();
     return updated ? transformDatabaseRow(updated) : undefined;
   },
+
+  // Activate/Deactivate group
+  toggleRestaurant: async (id: ID): Promise<Restaurant | undefined> => {
+    const db = getDatabase();
+    const [toggled] = await db
+      .update(schema.restaurants)
+      .set({ isActive: !schema.restaurants.isActive, updatedAt: new Date() })
+      .where(eq(schema.restaurants.id, id))
+      .returning();
+
+    return toggled ? transformDatabaseRow(toggled) : undefined;
+  },
+
+  // Delete restaurant
+  deleteRestaurant: async (id: ID): Promise<Restaurant | undefined> => {
+    const db = getDatabase();
+    const [deleted] = await db
+      .delete(schema.restaurants)
+      .where(eq(schema.restaurants.id, id))
+      .returning();
+    return deleted ? transformDatabaseRow(deleted) : undefined;
+  }
 };
 
 // Table queries
 export const tableQueries = {
   // Get table by ID with restaurant info
-  getTableById: async (id: ID): Promise<TableWithRestaurant | undefined> => {
+  getTableDetailsById: async (id: ID): Promise<TableWithRestaurant | undefined> => {
     const db = getDatabase();
     const result = await db
       .select({
@@ -171,26 +413,20 @@ export const tableQueries = {
     };
   },
 
-  // Get tables by restaurant
-  getTablesByRestaurant: async (restaurantId: ID): Promise<Table[]> => {
+  // Get table by ID
+  getTableById: async (id: ID): Promise<Table | undefined> => {
     const db = getDatabase();
-    const rows = await db
+    const result = await db
       .select()
       .from(schema.tables)
-      .where(and(
-        eq(schema.tables.restaurantId, restaurantId),
-        eq(schema.tables.isActive, true)
-      ))
-      .orderBy(asc(schema.tables.number));
+      .where(eq(schema.tables.id, id))
+      .limit(1);
 
-    return transformDatabaseRows<Table>(rows)
+    return result[0] ? transformDatabaseRow(result[0]) : undefined;
   },
 
-  // Create table
-  createTable: async (data: {
-    restaurantId: ID;
-    number: string;
-  }): Promise<Table | undefined> => {
+  // Register table
+  registerTable: async (data: RegisterTableDto): Promise<Table | undefined> => {
     const db = getDatabase();
     const [table] = await db
       .insert(schema.tables)
@@ -198,155 +434,134 @@ export const tableQueries = {
       .returning();
     return table ? transformDatabaseRow(table) : undefined;
   },
+
+  // Update table
+  updateTable: async (tableId: ID, data: UpdateTableDto): Promise<Table | undefined> => {
+    const db = getDatabase();
+    const [table] = await db
+      .update(schema.tables)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.tables.id, tableId))
+      .returning();
+    return table ? transformDatabaseRow(table) : undefined;
+  },
+
+  // Activate/Deactivate table
+  toggleTable: async (id: ID): Promise<Table | undefined> => {
+    const db = getDatabase();
+    const [toggled] = await db
+      .update(schema.tables)
+      .set({ isActive: !schema.tables.isActive, updatedAt: new Date() })
+      .where(eq(schema.tables.id, id))
+      .returning();
+
+    return toggled ? transformDatabaseRow(toggled) : undefined;
+  }
 };
 
-// Staff queries
-export const staffQueries = {
-  // Get staff by telegram ID
-  getStaffByTelegramId: async (telegramId: bigint): Promise<StaffWithRestaurant | undefined> => {
+export const menuCategoryQueries = {
+  // Get menu categories by restaurantId
+  getCategoriesByRestaurantId: async (restaurantId: ID): Promise<RestaurantWithCategories | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select()
+      .from(schema.restaurants)
+      .where(and(
+        eq(schema.restaurants.id, restaurantId),
+        eq(schema.restaurants.isActive, true)
+      ))
+      .limit(1);
+    
+    if (!result[0]) return undefined;
+
+    const rows = await db
+      .select()
+      .from(schema.menuCategories)
+      .where(and(
+        eq(schema.menuCategories.restaurantId, restaurantId),
+        eq(schema.menuCategories.isActive, true),
+      ));
+
+    return {
+      ...transformDatabaseRow<Restaurant>(result[0]),
+      categories: transformDatabaseRows<MenuCategory>(rows)
+    }
+  },
+
+  // Get menu category by ID
+  getCategoryById: async (id: ID): Promise<MenuCategory | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select()
+      .from(schema.menuCategories)
+      .where(eq(schema.menuCategories.id, id))
+      .limit(1);
+
+    return result[0] ? transformDatabaseRow(result[0]) : undefined;
+  },
+
+  // Get menu category details by ID
+  getCategoryDetailsByID: async (id: ID): Promise<MenuCategoryWithRestaurant | undefined> => {
     const db = getDatabase();
     const result = await db
       .select({
-        staff: schema.staff,
+        category: schema.menuCategories,
         restaurant: schema.restaurants,
       })
-      .from(schema.staff)
-      .innerJoin(schema.restaurants, eq(schema.staff.restaurantId, schema.restaurants.id))
+      .from(schema.menuCategories)
+      .innerJoin(schema.restaurants, eq(schema.menuCategories.restaurantId, schema.restaurants.id))
       .where(and(
-        eq(schema.staff.telegramId, telegramId),
-        eq(schema.staff.isActive, true),
+        eq(schema.menuCategories.id, id),
+        eq(schema.menuCategories.isActive, true),
         eq(schema.restaurants.isActive, true)
       ))
       .limit(1);
 
     if (!result[0]) return undefined;
     return {
-      ...transformDatabaseRow<Staff>(result[0].staff),
+      ...transformDatabaseRow<MenuCategory>(result[0].category),
       restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant)
-    }
+    };
   },
 
-  // Get staff by restaurant and role
-  getStaffByRestaurantAndRole: async (restaurantId: ID, role?: StaffRole): Promise<Staff[]> => {
+  // Register menu category
+  registerCategory: async (data: RegisterMenuCategoryDto): Promise<MenuCategory | undefined> => {
     const db = getDatabase();
-    
-    const conditions = [
-      eq(schema.staff.restaurantId, restaurantId),
-      eq(schema.staff.isActive, true),
-    ];
-    
-    if (role) {
-      conditions.push(eq(schema.staff.role, role));
-    }
-    
-    const rows = await db
-      .select()
-      .from(schema.staff)
-      .where(and(...conditions))
-      .orderBy(asc(schema.staff.role), asc(schema.staff.telegramId));
-
-    return transformDatabaseRows<Staff>(rows);
-  },
-
-  // Create staff member
-  createStaff: async (data: CreateStaffDto): Promise<Staff | undefined> => {
-    const db = getDatabase();
-    const [staff] = await db
-      .insert(schema.staff)
+    const [item] = await db
+      .insert(schema.menuCategories)
       .values(data)
       .returning();
-    return staff;
+    return item ? transformDatabaseRow(item) : undefined;
   },
 
-  // Update staff role
-  updateStaffRole: async (staffId: ID, role: StaffRole): Promise<Staff | undefined> => {
+  // Update menu category
+  updateCategory: async (id: ID, data: UpdateMenuCategoryDto): Promise<MenuCategory | undefined> => {
     const db = getDatabase();
-    const [updated] = await db
-      .update(schema.staff)
-      .set({ role, updatedAt: new Date() })
-      .where(eq(schema.staff.id, staffId))
-      .returning();
-    return updated;
-  },
-
-  // Deactivate staff
-  deactivateStaff: async (staffId: ID): Promise<Staff | undefined> => {
-    const db = getDatabase();
-    const [updated] = await db
-      .update(schema.staff)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(schema.staff.id, staffId))
-      .returning();
-    return updated;
-  },
-};
-
-// Telegram Group queries
-export const telegramGroupQueries = {
-  // Get group by chat ID
-  getGroupByTelegramId: async (chatId: bigint): Promise<TelegramGroupWithRestaurant | undefined> => {
-    const db = getDatabase();
-    const result = await db
-      .select({
-        group: schema.telegramGroups,
-        restaurant: schema.restaurants,
-      })
-      .from(schema.telegramGroups)
-      .innerJoin(schema.restaurants, eq(schema.telegramGroups.restaurantId, schema.restaurants.id))
-      .where(and(
-        eq(schema.telegramGroups.chatId, chatId),
-        eq(schema.telegramGroups.isActive, true)
-      ))
-      .limit(1);
-
-    if (!result[0]) return undefined;
-    return {
-      ...transformDatabaseRow<TelegramGroup>(result[0].group),
-      restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant)
-    }
-  },
-
-  // Get groups by restaurant
-  getGroupsByRestaurant: async (restaurantId: ID): Promise<TelegramGroup[]> => {
-    const db = getDatabase();
-    const rows = await db
-      .select()
-      .from(schema.telegramGroups)
-      .where(and(
-        eq(schema.telegramGroups.restaurantId, restaurantId),
-        eq(schema.telegramGroups.isActive, true)
-      ))
-      .orderBy(asc(schema.telegramGroups.groupType));
-
-    return transformDatabaseRows<TelegramGroup>(rows);
-  },
-
-  // Register group
-  registerGroup: async (data: CreateTelegramGroupDto): Promise<TelegramGroup | undefined> => {
-    const db = getDatabase();
-    const [group] = await db
-      .insert(schema.telegramGroups)
-      .values(data)
-      .returning();
-    return group ? transformDatabaseRow<TelegramGroup>(group) : undefined;
-  },
-
-  // Update group
-  updateGroup: async (groupId: ID, data: Partial<UpdateTelegramGroupDto>): Promise<TelegramGroup | undefined> => {
-    const db = getDatabase();
-    const [updated] = await db
-      .update(schema.telegramGroups)
+    const [item] = await db
+      .update(schema.menuCategories)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(schema.telegramGroups.id, groupId))
+      .where(eq(schema.menuCategories.id, id))
       .returning();
-    return updated ? transformDatabaseRow<TelegramGroup>(updated) : undefined;
+    return item ? transformDatabaseRow(item) : undefined;
   },
-};
+
+  // Activate/Deactivate menu category
+  toggleCategory: async (id: ID): Promise<MenuCategory | undefined> => {
+    const db = getDatabase();
+    const [toggled] = await db
+      .update(schema.menuCategories)
+      .set({ isActive: !schema.menuCategories.isActive, updatedAt: new Date() })
+      .where(eq(schema.menuCategories.id, id))
+      .returning();
+
+    return toggled ? transformDatabaseRow(toggled) : undefined;
+  }
+}
 
 // Menu queries with variants support
 export const menuQueries = {
   // Get menu by restaurant with categories, items, and variants
-  getMenuByRestaurant: async (restaurantId: ID): Promise<MenuItemWithCategory[]> => {
+  getMenuByRestaurantId: async (restaurantId: ID): Promise<MenuCategoryWithItems[]> => {
     const db = getDatabase();
     
     // Get menu items with their categories
@@ -373,55 +588,67 @@ export const menuQueries = {
         asc(schema.menuItems.sortOrder)
       );
 
-    // Get all variants for the restaurant's menu items
-    const variants = await db
-      .select({
-        variant: schema.menuItemVariants,
-        menuItemId: schema.menuItemVariants.menuItemId,
-      })
-      .from(schema.menuItemVariants)
-      .innerJoin(schema.menuItems, eq(schema.menuItemVariants.menuItemId, schema.menuItems.id))
-      .where(and(
-        eq(schema.menuItems.restaurantId, restaurantId),
-        eq(schema.menuItemVariants.isAvailable, true)
-      ))
-      .orderBy(asc(schema.menuItemVariants.sortOrder));
+    // // Get all variants for the restaurant's menu items
+    // const variants = await db
+    //   .select({
+    //     variant: schema.menuItemVariants,
+    //     menuItemId: schema.menuItemVariants.menuItemId,
+    //   })
+    //   .from(schema.menuItemVariants)
+    //   .innerJoin(schema.menuItems, eq(schema.menuItemVariants.menuItemId, schema.menuItems.id))
+    //   .where(and(
+    //     eq(schema.menuItems.restaurantId, restaurantId),
+    //     eq(schema.menuItemVariants.isAvailable, true)
+    //   ))
+    //   .orderBy(asc(schema.menuItemVariants.sortOrder));
 
-    // Transform variants and group by menu item ID
-    const transformedVariants = variants.map(({ variant, menuItemId }) => ({
-      variant: transformDatabaseRowWithDecimals<MenuItemVariant>(variant),
-      menuItemId
-    }));
+    // // Transform variants and group by menu item ID
+    // const transformedVariants = variants.map(({ variant, menuItemId }) => ({
+    //   variant: transformDatabaseRowWithDecimals<MenuItemVariant>(variant),
+    //   menuItemId
+    // }));
 
-    // Group variants by menu item ID
-    const variantsByMenuItem = new Map<string, MenuItemVariant[]>();
-    transformedVariants.forEach(({ variant, menuItemId }) => {
-      if (!variantsByMenuItem.has(menuItemId)) {
-        variantsByMenuItem.set(menuItemId, []);
+    // Group items by menu category ID
+    const itemsByCategory = new Map<ID, MenuCategoryWithItems>();
+    menuData.forEach(({ category, item }) => {
+      if (!itemsByCategory.has(category.id)) {
+        itemsByCategory.set(category.id, {
+          ...transformDatabaseRow<MenuCategory>(category),
+          items: [],
+        });
       }
-      variantsByMenuItem.get(menuItemId)!.push(variant);
+      itemsByCategory.get(category.id)!.items.push(transformDatabaseRow<MenuItem>(item));
     });
 
     // Transform menu data and attach variants
-    return menuData.filter(row => !!row.item).map(row => ({
-      ...transformDatabaseRow<MenuItem>(row.item),
-      category: transformDatabaseRow<MenuCategory>(row.category),
-      variants: variantsByMenuItem.get(row.item!.id) || []
-    }));
+    return Array.from(itemsByCategory.values());
   },
 
-  // Get menu item by ID with variants
-  getMenuItemById: async (id: ID): Promise<MenuItemWithRestaurant | undefined> => {
+  // Get menu item with restaurant info
+  getMenuItemById: async (id: ID): Promise<MenuItem | undefined> => {
+    const db = getDatabase();
+    const result = await db
+      .select()
+      .from(schema.menuItems)
+      .where(and(
+        eq(schema.menuItems.id, id),
+        eq(schema.menuItems.isActive, true)
+      ))
+      .limit(1);
+
+    return result[0] ? transformDatabaseRow<MenuItem>(result[0]) : undefined
+  },
+
+  // Get menu item details by ID with variants
+  getMenuItemDetailsById: async (id: ID): Promise<MenuItemDetailsWithCategory | undefined> => {
     const db = getDatabase();
     const result = await db
       .select({
         item: schema.menuItems,
         category: schema.menuCategories,
-        restaurant: schema.restaurants,
       })
       .from(schema.menuItems)
       .innerJoin(schema.menuCategories, eq(schema.menuItems.categoryId, schema.menuCategories.id))
-      .innerJoin(schema.restaurants, eq(schema.menuItems.restaurantId, schema.restaurants.id))
       .where(and(
         eq(schema.menuItems.id, id),
         eq(schema.menuItems.isActive, true),
@@ -445,23 +672,65 @@ export const menuQueries = {
     return {
       ...transformDatabaseRow<MenuItem>(result[0].item),
       category: transformDatabaseRow<MenuCategory>(result[0].category),
-      restaurant: transformDatabaseRow<Restaurant>(result[0].restaurant),
       variants
     };
   },
 
+  // Register menu item with its variants
+  registerMenuItem: async (data: RegisterMenuItemDto): Promise<MenuItemDetails | undefined> => {
+    const db = getDatabase();
+    const { variants, ...itemData } = data;
+
+    return db.transaction(async (tx) => {
+      // Insert menu item 
+      const [menuItemRow] = await tx
+        .insert(schema.menuItems)
+        .values(itemData)
+        .returning();
+
+      if (!menuItemRow) return undefined;
+      const menuItem = transformDatabaseRow<MenuItem>(menuItemRow);
+
+      // Insert menu item variants with variant references
+      const itemVariants = await tx
+        .insert(schema.menuItemVariants)
+        .values(
+          variants.map(variant => ({
+            ...variant,
+            menuItemId: menuItem.id,
+          }))
+        )
+        .returning();
+      
+      return {
+        ...menuItem,
+        variants: itemVariants.map(row => transformDatabaseRowWithDecimals<MenuItemVariant>(row))
+      };
+    });
+  },
+
+  // Update menu item by ID
+  updateMenuItem: async (itemId: ID, data: UpdateMenuItemDto): Promise<MenuItem | undefined> => {
+    const db = getDatabase();
+    const [updated] = await db
+      .update(schema.menuItems)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(schema.menuItems.id, itemId))
+      .returning();
+
+    return updated ? transformDatabaseRow(updated) : undefined;
+  },
+
   // Get variant by ID
-  getVariantById: async (variantId: ID): Promise<MenuItemVariantWithCategory | undefined> => {
+  getVariantById: async (variantId: ID): Promise<VariantWithMenuItem | undefined> => {
     const db = getDatabase();
     const result = await db
       .select({
         variant: schema.menuItemVariants,
         item: schema.menuItems,
-        category: schema.menuCategories,
       })
       .from(schema.menuItemVariants)
       .innerJoin(schema.menuItems, eq(schema.menuItemVariants.menuItemId, schema.menuItems.id))
-      .innerJoin(schema.menuCategories, eq(schema.menuItems.categoryId, schema.menuCategories.id))
       .where(and(
         eq(schema.menuItemVariants.id, variantId),
         eq(schema.menuItemVariants.isAvailable, true),
@@ -474,23 +743,40 @@ export const menuQueries = {
     return {
       ...transformDatabaseRowWithDecimals<MenuItemVariant>(result[0].variant),
       item: transformDatabaseRow<MenuItem>(result[0].item),
-      category: transformDatabaseRow<MenuCategory>(result[0].category)
     }
   },
 
-  // Search menu items with variants
-  searchMenuItems: async (params: {
-    restaurantId: ID;
-    categoryId?: ID;
-    search?: string;
-    minPrice?: number;
-    maxPrice?: number;
-    size?: ItemSize;
-    isAvailable?: boolean;
-    pagination?: PaginationParams;
-  }): Promise<MenuItemWithCategory[]> => {
+  updateVariantById: async (variantId: ID, data: UpdateMenuItemVariantDto): Promise<MenuItemVariant | undefined> => {
     const db = getDatabase();
-    const { restaurantId, categoryId, search, minPrice, maxPrice, size, isAvailable, pagination } = params;
+    const { isDefault } = data;
+
+    return db.transaction(async (tx) => {
+      // Set the default varaint to undefault
+      if (isDefault) {
+        const [unset] = await tx
+          .update(schema.menuItemVariants)
+          .set({ isDefault: false, updatedAt: new Date() })
+          .where(eq(schema.menuItemVariants.isDefault, true))
+          .returning();
+        if (!unset) tx.rollback();
+      }
+
+      // Update menu item variant
+      const [updated] = await tx
+        .update(schema.menuItemVariants)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(schema.menuItemVariants.id, variantId))
+        .returning();
+      if (!updated) return undefined;
+
+      return transformDatabaseRow(updated);
+    });
+  },
+
+  // Search menu items with variants
+  searchMenuItems: async (restaurantId: ID, query: MenuSearchQuery): Promise<MenuItemDetailsWithCategory[]> => {
+    const db = getDatabase();
+    const { categoryId, search, minPrice, maxPrice, size, isAvailable, pagination } = query;
     
     // Build all conditions first
     const conditions = [
@@ -544,8 +830,8 @@ export const menuQueries = {
       .limit(limit)
       .offset(offset);
 
-    // Group variants by menu item
-    const itemsMap = new Map<ID, MenuItemWithCategory>();
+    // Group items by menu item
+    const itemsMap = new Map<ID, MenuItemDetailsWithCategory>();
     results.forEach(({ item, category, variant }) => {
       if (!itemsMap.has(item.id)) {
         itemsMap.set(item.id, {
@@ -560,15 +846,27 @@ export const menuQueries = {
     return Array.from(itemsMap.values());
   },
 
+  toggleMenuItem: async (itemId: ID): Promise<MenuItem | undefined> => {
+    const db = getDatabase();
+    
+    // Toggle entire menu item
+    const [updated] = await db
+      .update(schema.menuItems)
+      .set({ isActive: schema.menuItems.isActive, updatedAt: new Date() })
+      .where(eq(schema.menuItems.id, itemId))
+      .returning();
+    return updated ? transformDatabaseRow<MenuItem>(updated) : undefined;
+  },
+
   // Toggle menu item availability
-  toggleMenuItemAvailability: async (itemId: ID, isAvailable: boolean, variantId?: ID): Promise<MenuItem | MenuItemVariant | undefined> => {
+  toggleMenuItemAvailability: async (itemId: ID, variantId?: ID): Promise<MenuItem | MenuItemVariant | undefined> => {
     const db = getDatabase();
     
     if (variantId) {
       // Toggle specific variant
       const [updated] = await db
         .update(schema.menuItemVariants)
-        .set({ isAvailable, updatedAt: new Date() })
+        .set({ isAvailable: !schema.menuItemVariants.isAvailable, updatedAt: new Date() })
         .where(eq(schema.menuItemVariants.id, variantId))
         .returning();
       return updated ? transformDatabaseRowWithDecimals<MenuItemVariant>(updated) : undefined;
@@ -576,7 +874,7 @@ export const menuQueries = {
       // Toggle entire menu item
       const [updated] = await db
         .update(schema.menuItems)
-        .set({ isAvailable, updatedAt: new Date() })
+        .set({ isAvailable: schema.menuItems.isAvailable, updatedAt: new Date() })
         .where(eq(schema.menuItems.id, itemId))
         .returning();
       return updated ? transformDatabaseRow<MenuItem>(updated) : undefined;
@@ -587,23 +885,15 @@ export const menuQueries = {
 // Order queries updated for variants and direct telegram ID
 export const orderQueries = {
   // Create new order with variants
-  createOrder: async (orderData: CreateOrderDto): Promise<OrderDetails | undefined> => {
+  createOrder: async (data: CreateOrderDto): Promise<OrderDetails | undefined> => {
     const db = getDatabase();
+    const { orderItems, ...orderData } = data;
     
     return db.transaction(async (tx) => {
       // Insert order
       const [orderRow] = await tx
         .insert(schema.orders)
-        .values({
-          customerTelegramId: orderData.customerTelegramId,
-          customerName: orderData.customerName,
-          restaurantId: orderData.restaurantId,
-          tableId: orderData.tableId,
-          orderNumber: orderData.orderNumber,
-          totalAmount: orderData.totalAmount,
-          estimatedPreparationMinutes: orderData.estimatedPreparationMinutes,
-          notes: orderData.notes,
-        })
+        .values(orderData)
         .returning();
 
       if (!orderRow) return undefined;
@@ -613,15 +903,17 @@ export const orderQueries = {
       const orderItemRows = await tx
         .insert(schema.orderItems)
         .values(
-          orderData.orderItems.map(item => ({
+          orderItems.map(item => ({
             ...item,
             orderId: order.id,
           }))
         )
         .returning();
-      const orderItems = orderItemRows.map(row => transformDatabaseRowWithDecimals<OrderItem>(row));
       
-      return { ...order, orderItems };
+      return {
+        ...order,
+        orderItems: orderItemRows.map(row => transformDatabaseRowWithDecimals<OrderItem>(row))
+      };
     });
   },
 
@@ -668,7 +960,7 @@ export const orderQueries = {
   },
 
   // Get orders by customer telegram ID
-  getOrdersByCustomerTelegramId: async (telegramId: bigint, pagination: PaginationParams = { page: 0, limit: 20 }): Promise<OrderWithInfo[]> => {
+  getOrdersByCustomerTelegramId: async (telegramId: TelegramId, pagination: PaginationQuery = { page: 1, limit: 20 }): Promise<OrderWithInfo[]> => {
     const db = getDatabase();
     
     const offset = (pagination.page - 1) * pagination.limit;
@@ -697,7 +989,7 @@ export const orderQueries = {
   getOrdersByRestaurantAndStatus: async (
     restaurantId: ID, 
     status?: OrderStatus[],
-    pagination: PaginationParams = { page: 0, limit: 20 },
+    pagination: PaginationQuery = { page: 1, limit: 20 },
   ): Promise<OrderWithTable[]> => {
     const db = getDatabase();
     
@@ -797,22 +1089,27 @@ export const orderQueries = {
 // Kitchen load queries
 export const kitchenQueries = {
   // Get current kitchen load
-  getKitchenLoad: async (restaurantId: ID): Promise<KitchenLoad | undefined> => {
+  getKitchenLoad: async (restaurantId: ID): Promise<KitchenLoadInfo> => {
     const db = getDatabase();
     const result = await db
-      .select()
+      .select({
+        currentOrders: schema.kitchenLoads.currentOrders,
+        averagePreparationTime: schema.kitchenLoads.averagePreparationTime,
+        lastUpdated: schema.kitchenLoads.lastUpdated
+      })
       .from(schema.kitchenLoads)
       .where(eq(schema.kitchenLoads.restaurantId, restaurantId))
       .orderBy(desc(schema.kitchenLoads.lastUpdated))
       .limit(1);
     
-    return result[0] ? transformDatabaseRow(result[0]) : undefined;
+    return result[0] ? transformDatabaseRow(result[0]) : calculateKitchenLoad(restaurantId);
   },
 
-  // Update kitchen load
-  updateKitchenLoad: async (restaurantId: ID, data: KitchenLoadInfo): Promise<KitchenLoad | undefined> => {
+  // Update kitchen load, insert if not exist
+  upsertKitchenLoad: async (restaurantId: ID): Promise<KitchenLoad | undefined> => {
     const db = getDatabase();
-    
+    const data = await calculateKitchenLoad(restaurantId);
+
     // Try to update existing record
     const [updated] = await db
       .update(schema.kitchenLoads)
@@ -824,7 +1121,7 @@ export const kitchenQueries = {
       .returning();
     
     if (updated) {
-      return updated;
+      return transformDatabaseRow(updated);
     }
     
     // Create new record if none exists
@@ -838,45 +1135,46 @@ export const kitchenQueries = {
     
     return created ? transformDatabaseRow(created) : undefined;
   },
-
-  // Calculate kitchen load from active orders
-  calculateKitchenLoad: async (restaurantId: ID): Promise<KitchenLoadInfo> => {
-    const db = getDatabase();
-    
-    // Count active orders
-    const [orderCount] = await db
-      .select({ count: count() })
-      .from(schema.orders)
-      .where(and(
-        eq(schema.orders.restaurantId, restaurantId),
-        inArray(schema.orders.status, ['pending', 'confirmed', 'preparing'])
-      ));
-    
-    // Calculate average preparation time from recent completed orders
-    const recentOrders = await db
-      .select({ actualPreparationMinutes: schema.orders.actualPreparationMinutes })
-      .from(schema.orders)
-      .where(and(
-        eq(schema.orders.restaurantId, restaurantId),
-        eq(schema.orders.status, 'served'),
-        gte(schema.orders.servedAt, sql`NOW() - INTERVAL '24 hours'`)
-      ))
-      .limit(50);
-    
-    const validPreparationTimes = recentOrders
-      .map(o => o.actualPreparationMinutes)
-      .filter((time): time is number => time !== null);
-    
-    const averagePreparationTime = validPreparationTimes.length > 0
-      ? Math.round(validPreparationTimes.reduce((sum, time) => sum + time, 0) / validPreparationTimes.length)
-      : 15; // Default to 15 minutes
-    
-    return {
-      currentOrders: orderCount?.count || 0,
-      averagePreparationTime,
-    };
-  },
 };
+
+// Calculate kitchen load from active orders
+const calculateKitchenLoad = async (restaurantId: ID): Promise<KitchenLoadInfo> => {
+  const db = getDatabase();
+
+  // Count active orders
+  const [orderCount] = await db
+    .select({ count: count() })
+    .from(schema.orders)
+    .where(and(
+      eq(schema.orders.restaurantId, restaurantId),
+      inArray(schema.orders.status, ['pending', 'confirmed', 'preparing'])
+    ));
+  
+  // Calculate average preparation time from recent completed orders
+  const recentOrders = await db
+    .select({ actualPreparationMinutes: schema.orders.actualPreparationMinutes })
+    .from(schema.orders)
+    .where(and(
+      eq(schema.orders.restaurantId, restaurantId),
+      eq(schema.orders.status, 'served'),
+      gte(schema.orders.servedAt, sql`NOW() - INTERVAL '24 hours'`)
+    ))
+    .limit(50);
+  
+  const validPreparationTimes = recentOrders
+    .map(o => o.actualPreparationMinutes)
+    .filter((time): time is number => time !== null);
+  
+  const averagePreparationTime = validPreparationTimes.length > 0
+    ? Math.round(validPreparationTimes.reduce((sum, time) => sum + time, 0) / validPreparationTimes.length)
+    : 15; // Default to 15 minutes
+  
+  return {
+    currentOrders: orderCount?.count || 0,
+    averagePreparationTime,
+    lastUpdated: new Date()
+  };
+}
 
 // Analytics queries updated for variants
 export const analyticsQueries = {
@@ -936,7 +1234,7 @@ export const analyticsQueries = {
   },
 
   // Get hourly order distribution
-  getHourlyOrderDistribution: async (restaurantId: ID, date: Date): Promise<HourlyOrderDistribution[]>  => {
+  getHourlyOrderDistribution: async (restaurantId: ID, date: Date): Promise<HourlyOrderDistribution[]> => {
     const db = getDatabase();
     
     const startOfDay = new Date(date);
@@ -966,6 +1264,7 @@ export const analyticsQueries = {
 export const queries = {
   restaurant: restaurantQueries,
   table: tableQueries,
+  menuCategory: menuCategoryQueries,
   menu: menuQueries,
   order: orderQueries,
   staff: staffQueries,

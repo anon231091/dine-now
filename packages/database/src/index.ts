@@ -12,3 +12,6 @@ export * from './queries';
 
 // Export validators
 export * from './validators';
+
+// Export derived-types
+export * from './types';

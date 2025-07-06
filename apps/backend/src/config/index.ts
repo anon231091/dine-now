@@ -16,12 +16,12 @@ export interface AppConfig {
   telegramBotToken: string;
   telegramBotServiceToken: string;
   telegramWebhookUrl: string;
-  telegramWebhookSecret: string; 
   jwtSecret: string;
   jwtExpiresIn: string;
   logLevel: string;
   enableSwagger: boolean;
   enableMetrics: boolean;
+  superAdminTelegramId: string;
 }
 
 const nodeEnv = process.env.NODE_ENV || ENVIRONMENT.DEVELOPMENT;
@@ -36,12 +36,12 @@ export const config: AppConfig = {
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
   telegramBotServiceToken: process.env.TELEGRAM_BOT_SERVICE_TOKEN || '',
   telegramWebhookUrl: process.env.TELEGRAM_WEBHOOK_URL || 'http://localhost:3002/webhook',
-  telegramWebhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
   jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   logLevel: process.env.LOG_LEVEL || 'info',
   enableSwagger: process.env.ENABLE_SWAGGER === 'true' || nodeEnv === ENVIRONMENT.DEVELOPMENT,
   enableMetrics: process.env.ENABLE_METRICS === 'true',
+  superAdminTelegramId: process.env.SUPER_ADMIN_TELEGRAM_ID || '',
 };
 
 // Validation

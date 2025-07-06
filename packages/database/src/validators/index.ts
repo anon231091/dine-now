@@ -3,7 +3,8 @@ import { z } from 'zod/v4';
 import {
   restaurants, tables, staff, menuCategories, menuItems, menuItemVariants,
   orderStatusEnum, itemSizeEnum, telegramGroups, orders, orderItems,
-  kitchenLoads
+  kitchenLoads,
+  staffRoleEnum
 } from '../schema';
 import { BUSINESS_RULES, REGEX } from '@dine-now/shared';
 
@@ -39,60 +40,101 @@ const PaginationSchema = z.object({
 });
 
 // API Request Schemas (enhanced versions of insert schemas)
-const { createInsertSchema, createUpdateSchema } = createSchemaFactory({
+const { createInsertSchema } = createSchemaFactory({
   zodInstance: z,
   // This configuration will only coerce dates. Set `coerce` to `true` to coerce all data types or specify others
   coerce: {
     date: true,
     bigint: true
-  }
+  },
 });
 
 // Staff API schemas
-const CreateStaffSchema = createInsertSchema(staff, {
+const RegisterStaffSchema = createInsertSchema(staff, {
   restaurantId: IdSchema,
   telegramId: TelegramIdSchema
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-const UpdateStaffSchema = CreateStaffSchema.partial().omit({ 
+const UpdateStaffSchema = RegisterStaffSchema.partial().omit({ 
   restaurantId: true, 
-  telegramId: true
+  isActive: true,
 });
 
 // Telegram Group schemas
-const CreateTelegramGroupSchema = createInsertSchema(telegramGroups, {
+const RegisterTelegramGroupSchema = createInsertSchema(telegramGroups, {
   restaurantId: IdSchema,
   chatId: TelegramIdSchema,
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
-const UpdateTelegramGroupSchema = CreateTelegramGroupSchema.partial().omit({ 
+const UpdateTelegramGroupSchema = RegisterTelegramGroupSchema.partial().omit({ 
   restaurantId: true, 
-  chatId: true
+  isActive: true
 });
 
 // Restaurant API schemas
-const CreateRestaurantSchema = createInsertSchema(restaurants, {
+const RegisterRestaurantSchema = createInsertSchema(restaurants, {
   phoneNumber: PhoneNumberSchema.optional()
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-const UpdateRestaurantSchema = CreateRestaurantSchema.partial();
+const UpdateRestaurantSchema = RegisterRestaurantSchema.partial().omit({
+  isActive: true,
+});
 
 // Table API schemas
-const CreateTableSchema = createInsertSchema(tables, {
-  restaurantId: IdSchema,
+const RegisterTableSchema = createInsertSchema(tables, {
   number: TableNumberSchema
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-const UpdateTableSchema = CreateTableSchema.partial().omit({ restaurantId: true });
+const UpdateTableSchema = RegisterTableSchema.partial().omit({
+  restaurantId: true,
+  isActive: true
+});
 
 // Menu Category API schemas
-const CreateMenuCategorySchema = createInsertSchema(menuCategories, {
+const RegisterMenuCategorySchema = createInsertSchema(menuCategories, {
   restaurantId: IdSchema,
   sortOrder: SortOrderSchema
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-const UpdateMenuCategorySchema = CreateMenuCategorySchema.partial().omit({ 
-  restaurantId: true 
+const UpdateMenuCategorySchema = RegisterMenuCategorySchema.partial().omit({ 
+  restaurantId: true,
+  isActive: true
+});
+
+// Menu Item Variant API schemas
+const RegisterMenuItemVariantSchema = createInsertSchema(menuItemVariants, {
+  menuItemId: IdSchema,
+  price: PriceSchema,
+  sortOrder: SortOrderSchema
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+const UpdateMenuItemVariantSchema = RegisterMenuItemVariantSchema.partial().omit({ 
+  menuItemId: true,
+  isAvailable: true
 });
 
 // Menu Item API schemas
-const CreateMenuItemSchema = createInsertSchema(menuItems, {
+const RegisterMenuItemSchema = createInsertSchema(menuItems, {
   categoryId: IdSchema,
   restaurantId: IdSchema,
   sortOrder: SortOrderSchema,
@@ -101,20 +143,21 @@ const CreateMenuItemSchema = createInsertSchema(menuItems, {
     .min(BUSINESS_RULES.MIN_PREPARATION_TIME)
     .max(BUSINESS_RULES.MAX_PREPARATION_TIME)
     .default(BUSINESS_RULES.DEFAULT_PREPARATION_TIME),
+}).extend({
+  variants: z
+    .array(RegisterMenuItemVariantSchema.omit({ menuItemId: true }))
+    .min(1, 'At least one variant is required')
+    .max(BUSINESS_RULES.MAX_VARIANTS_PER_ITEM),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
-const UpdateMenuItemSchema = CreateMenuItemSchema.partial().omit({ 
-  restaurantId: true 
-});
-
-// Menu Item Variant API schemas
-const CreateMenuItemVariantSchema = createInsertSchema(menuItemVariants, {
-  menuItemId: IdSchema,
-  price: PriceSchema,
-  sortOrder: SortOrderSchema
-});
-
-const UpdateMenuItemVariantSchema = CreateMenuItemVariantSchema.partial().omit({ 
-  menuItemId: true 
+const UpdateMenuItemSchema = RegisterMenuItemSchema.partial().omit({ 
+  restaurantId: true,
+  isActive: true,
+  isAvailable: true,
+  variants: true
 });
 
 // Order Item schema for order creation
@@ -125,8 +168,8 @@ const OrderItemInputSchema = createInsertSchema(orderItems, {
   notes: (schema) => schema.max(200).optional(),
 })
 .omit({
+  id: true,
   orderId: true,
-  subtotal: true
 });
 
 // Order API schemas
@@ -142,23 +185,39 @@ const CreateOrderSchema = createInsertSchema(orders, {
     .array(OrderItemInputSchema)
     .min(BUSINESS_RULES.MIN_ORDER_VALUE, 'At least one item is required')
     .max(BUSINESS_RULES.MAX_ITEMS_PER_ORDER),
+}).omit({
+  id: true,
+  actualPreparationMinutes: true,
+  createdAt: true,
+  updatedAt: true,
+  confirmedAt: true,
+  readyAt: true,
+  servedAt: true
 });
 
 const UpdateOrderStatusSchema = z.object({
+  orderId: IdSchema,
   status: z.enum(orderStatusEnum.enumValues),
   notes: z.string().max(500).optional(),
 });
 
 // Kitchen Load API schemas
-const UpdateKitchenLoadSchema = createUpdateSchema(kitchenLoads, {
+const UpsertKitchenLoadSchema = createInsertSchema(kitchenLoads, {
   restaurantId: IdSchema,
   currentOrders: (schema) => schema.min(0),
   averagePreparationTime: (schema) => schema.min(0),
+}).omit({
+  id: true,
+  createdAt: true,
+  lastUpdated: true,
 });
 
 // Search and filter schemas
+const StaffQuerySchema = z.object({
+  role: z.enum(staffRoleEnum.enumValues).optional(),
+});
+
 const MenuSearchSchema = z.object({
-  restaurantId: IdSchema,
   categoryId: IdSchema.optional(),
   search: z.string().max(100).optional(),
   isAvailable: z.boolean().optional(),
@@ -167,11 +226,10 @@ const MenuSearchSchema = z.object({
   size: z.enum(itemSizeEnum.enumValues).optional(),
   sortBy: z.enum(['name', 'price', 'preparationTime', 'sortOrder']).default('sortOrder'),
   sortOrder: z.enum(['asc', 'desc']).default('asc'),
-  ...PaginationSchema.shape
+  pagination: PaginationSchema.optional(),
 });
 
 const OrderSearchSchema = z.object({
-  restaurantId: IdSchema.optional(),
   customerId: IdSchema.optional(),
   tableId: IdSchema.optional(),
   status: z.enum(['pending', 'confirmed', 'preparing', 'ready', 'served', 'cancelled']).optional(),
@@ -179,7 +237,7 @@ const OrderSearchSchema = z.object({
   dateTo: z.iso.datetime().optional(),
   sortBy: z.enum(['createdAt', 'totalAmount', 'status']).default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
-  ...PaginationSchema.shape
+  pagination: PaginationSchema.optional(),
 });
 
 // File upload schemas
@@ -192,7 +250,6 @@ const ImageUploadSchema = z.object({
 
 // Analytics schemas
 const AnalyticsQuerySchema = z.object({
-  restaurantId: IdSchema,
   dateFrom: z.iso.datetime(),
   dateTo: z.iso.datetime(),
   granularity: z.enum(['hour', 'day', 'week', 'month']).default('day'),
@@ -210,6 +267,18 @@ export const validateSchema = <T>(schema: z.ZodSchema<T>) => {
 };
 
 // Parameter validation schemas for routes
+const TelegramIdParamsSchema = z.object({
+  telegramId: TelegramIdSchema,
+});
+
+const StaffParamsSchema = z.object({
+  staffId: IdSchema,
+});
+
+const TelegramGroupParamsSchema = z.object({
+  groupId: IdSchema,
+});
+
 const RestaurantParamsSchema = z.object({
   restaurantId: IdSchema,
 });
@@ -222,13 +291,18 @@ const OrderParamsSchema = z.object({
   orderId: IdSchema,
 });
 
+const CategoryParamsSchema = z.object({
+  categoryId: IdSchema,
+});
+
 const MenuItemParamsSchema = z.object({
   itemId: IdSchema,
 });
 
 const VariantParamsSchema = z.object({
-  variantId: IdSchema,
+  variantId: IdSchema.optional(),
 });
+
 
 // Export all schemas for easy access
 export const validators = {
@@ -240,40 +314,45 @@ export const validators = {
   Pagination: PaginationSchema,
   
   // Parameter schemas
+  TelegramIdParams: TelegramIdParamsSchema,
+  StaffParams: StaffParamsSchema,
+  TelegramGroupParams: TelegramGroupParamsSchema,
   RestaurantParams: RestaurantParamsSchema,
   TableParams: TableParamsSchema,
-  OrderParams: OrderParamsSchema,
+  CategoryParams: CategoryParamsSchema,
   MenuItemParams: MenuItemParamsSchema,
   VariantParams: VariantParamsSchema,
+  OrderParams: OrderParamsSchema,
 
   // DTO schema
-  CreateRestaurant: CreateRestaurantSchema,
+  RegisterRestaurant: RegisterRestaurantSchema,
   UpdateRestaurant: UpdateRestaurantSchema,
   
-  CreateTable: CreateTableSchema,
+  RegisterTable: RegisterTableSchema,
   UpdateTable: UpdateTableSchema,
   
-  CreateStaff: CreateStaffSchema,
+  RegisterStaff: RegisterStaffSchema,
   UpdateStaff: UpdateStaffSchema,
 
-  CreateTelegramGroup: CreateTelegramGroupSchema,
+  RegisterTelegramGroup: RegisterTelegramGroupSchema,
   UpdateTelegramGroup: UpdateTelegramGroupSchema,
   
-  CreateMenuCategory: CreateMenuCategorySchema,
+  RegisterMenuCategory: RegisterMenuCategorySchema,
   UpdateMenuCategory: UpdateMenuCategorySchema,
   
-  CreateMenuItem: CreateMenuItemSchema,
+  RegisterMenuItem: RegisterMenuItemSchema,
   UpdateMenuItem: UpdateMenuItemSchema,
   
-  CreateMenuItemVariant: CreateMenuItemVariantSchema,
+  RegisterMenuItemVariant: RegisterMenuItemVariantSchema,
   UpdateMenuItemVariant: UpdateMenuItemVariantSchema,
   
   OrderItem: OrderItemInputSchema,
   CreateOrder: CreateOrderSchema,
   UpdateOrderStatus: UpdateOrderStatusSchema,
   
-  UpdateKitchenLoad: UpdateKitchenLoadSchema,
+  UpsertKitchenLoad: UpsertKitchenLoadSchema,
   
+  StaffQuery: StaffQuerySchema,
   MenuSearch: MenuSearchSchema,
   OrderSearch: OrderSearchSchema,
   

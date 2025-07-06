@@ -1,12 +1,19 @@
 // Predefined enum values in DB
 export const USER_TYPES = [
   'general',
-  'staff'
+  'staff',
+  'super_admin'
 ] as const;
 
 export const STAFF_ROLES = [
   'admin',
   'manager',
+  'kitchen',
+  'service'
+] as const;
+
+export const GROUP_TYPES = [
+  'management',
   'kitchen',
   'service'
 ] as const;
@@ -18,12 +25,6 @@ export const ORDER_STATUS = [
   'ready',
   'served',
   'cancelled'
-] as const;
-
-export const GROUP_TYPES = [
-  'management',
-  'kitchen',
-  'service'
 ] as const;
 
 export const ITEM_SIZES = [
@@ -71,17 +72,17 @@ export const HTTP_STATUS = {
 
 // Error Messages
 export const ERROR_MESSAGES = {
-  UNAUTHORIZED: 'Unauthorized access',
-  ACCESS_DENIED: 'Access denied',
-  NOT_FOUND: 'Not found request',
-  VALIDATION_ERROR: 'Validation error',
-  NETWORK_ERROR: 'Network error',
-  SERVER_ERROR: 'Server error',
+  VALIDATION_ERROR: 'Validation error', // 400
+  UNAUTHORIZED: 'Unauthorized access', // 401
+  ACCESS_DENIED: 'Access denied', // 403
+  NOT_FOUND: 'Not found request', // 404
+  CONFLICT_ERROR: 'Duplicate entry', // 409
+  UNPROCESSABLE: 'Unprocessable request', // 422
+  SERVER_ERROR: 'Server error', // 500
+  SERVICE_UNAVAILABLE: 'Service unavailable', // 503
+  // misc
   UNKNOWN_ERROR: 'Unknown error occurred',
-  CONFLICT_ERROR: 'Duplicate entry',
   REFERENCE_ERROR: 'Invalid reference',
-  UNPROCESSABLE: 'Unprocessable request',
-  NO_PERMISSION: 'Insufficient permissions for this action',
   RATE_LIMITED: 'Too many requests, please try again later'
 } as const;
 
@@ -92,6 +93,7 @@ export const BUSINESS_RULES = {
   MAX_ORDER_VALUE: 1000,
   MIN_ORDER_VALUE: 1,
   MAX_PER_ITEM: 50,
+  MAX_VARIANTS_PER_ITEM: 5,
   
   // Time limits (in minutes)
   ORDER_TIMEOUT: 30,
@@ -126,7 +128,7 @@ export const ROLE_PERMISSIONS = {
     'restaurant:manage',
     'menu:manage',
     'tables:manage',
-    'staff:assign',
+    'staff:manage',
     'orders:read',
     'analytics:read',
     'telegram_groups:manage'

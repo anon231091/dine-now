@@ -20,11 +20,12 @@ import {
   validateQuery,
   authMiddleware,
   authGeneralMiddleware,
-  authStaffMiddleware,
-  AuthenticatedRequest 
+  AuthenticatedRequest, 
+  authServiceMiddleware
 } from '../middleware';
 import { logInfo, logError } from '../utils/logger';
 import { broadcastOrderUpdate, CUSTOMER_ROOM_PREFIX } from '../websocket';
+import { getBotNotifier } from '../services/bot-notifier';
 
 const router: Router = Router();
 
@@ -162,6 +163,10 @@ router.post(
 
     // Broadcast to restaurant staff
     broadcastOrderUpdate(restaurantId, WS_EVENTS.NEW_ORDER, completeOrder);
+
+    // Notify bot service about new order
+    const botNotifier = getBotNotifier();
+    await botNotifier.notifyNewOrder(completeOrder, restaurantId);
 
     logInfo('Order created successfully', { 
       orderId: orderData.order.id, 
@@ -310,7 +315,7 @@ router.get(
  */
 router.patch(
   '/:orderId/status',
-  authStaffMiddleware,
+  authServiceMiddleware,
   validateParams(validators.OrderParams),
   validateBody(validators.UpdateOrderStatus.omit({ orderId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -377,6 +382,15 @@ router.patch(
       order: completeOrder,
     });
 
+    // Notify bot service about status update
+    const botNotifier = getBotNotifier();
+    await botNotifier.notifyStatusUpdate(
+      orderId!, 
+      status, 
+      currentOrder.order.restaurantId,
+      req.user?.firstName // Track who updated the status
+    );
+
     logInfo('Order status updated successfully', { orderId, status });
 
     return res.status(HTTP_STATUS.OK).json({
@@ -422,7 +436,7 @@ router.patch(
  */
 router.get(
   '/restaurant/:restaurantId',
-  authStaffMiddleware,
+  authServiceMiddleware,
   validateParams(validators.RestaurantParams),
   validateQuery(validators.OrderSearch.omit({ restaurantId: true })),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
@@ -470,6 +484,7 @@ router.get(
  */
 router.get(
   '/restaurant/:restaurantId/active',
+  authServiceMiddleware,
   validateParams(validators.RestaurantParams),
   asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { restaurantId } = req.params;

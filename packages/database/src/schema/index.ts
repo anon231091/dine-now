@@ -42,6 +42,21 @@ export const staff = pgTable('staff', {
   roleIdx: index('staff_role_idx').on(table.role),
 }));
 
+// Telegram groups 
+export const telegramGroups = pgTable('telegram_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  chatId: bigint('chat_id', { mode: 'bigint' }).notNull(), // e.g. a single telegram group for all staff members 
+  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
+  groupType: telegramGroupEnum('group_type').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => ({
+  restaurantTelegramUnique: unique('restaurant_telegram_group_unique').on(table.restaurantId, table.groupType),
+  restaurantIdx: index('telegram_groups_restaurant_idx').on(table.restaurantId),
+  chatIdx: index('telegram_groups_chat_idx').on(table.chatId),
+}));
+
 // Restaurants table
 export const restaurants = pgTable('restaurants', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -57,21 +72,6 @@ export const restaurants = pgTable('restaurants', {
 }, (table) => ({
   nameIdx: index('restaurants_name_idx').on(table.name),
   phoneIdx: index('restaurants_phone_idx').on(table.phoneNumber),
-}));
-
-// Telegram groups 
-export const telegramGroups = pgTable('telegram_groups', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  chatId: bigint('chat_id', { mode: 'bigint' }).notNull().unique(),
-  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id),
-  groupType: telegramGroupEnum('group_type').notNull(),
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-}, (table) => ({
-  restaurantTelegramUnique: unique('restaurant_telegram_group_unique').on(table.restaurantId, table.groupType),
-  restaurantIdx: index('telegram_groups_restaurant_idx').on(table.restaurantId),
-  chatIdx: index('telegram_groups_chat_idx').on(table.chatId),
 }));
 
 // Tables
@@ -190,8 +190,6 @@ export const orderItems = pgTable('order_items', {
   spiceLevel: spiceLevelEnum('spice_level').default('none'),
   notes: text('notes'),
   subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => ({
   orderIdx: index('order_items_order_idx').on(table.orderId),
   menuItemIdx: index('order_items_menu_item_idx').on(table.menuItemId),
@@ -212,13 +210,12 @@ export const kitchenLoads = pgTable('kitchen_loads', {
 
 // Relations
 export const restaurantsRelations = relations(restaurants, ({ many }) => ({
-  tables: many(tables),
   staff: many(staff),
   telegramGroups: many(telegramGroups),
+  tables: many(tables),
   menuCategories: many(menuCategories),
   menuItems: many(menuItems),
   orders: many(orders),
-  kitchenLoads: many(kitchenLoads),
 }));
 
 export const telegramGroupsRelations = relations(telegramGroups, ({ one }) => ({
