@@ -1,29 +1,27 @@
 import { Server as HTTPServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
-import jwt from 'jsonwebtoken';
 import { validate, parse } from '@telegram-apps/init-data-node';
 import { queries } from '@dine-now/database';
-import { ID, NotFoundError, UnauthorizedError, UnprocessableError, UserType, WS_EVENTS } from '@dine-now/shared';
+import { ID, NotFoundError, StaffRole, TelegramId, UnauthorizedError, UserType, WS_EVENTS } from '@dine-now/shared';
 import config from '../config';
 import { logInfo, logError, logWarning } from '../utils/logger';
 import { corsOptions } from '../middleware';
 
-export const CUSTOMER_ROOM_PREFIX: string = 'customer_';
-export const STAFF_ROOM_PREFIX: string = 'staff_';
-export const KITCHEN_ROOM_PREFIX: string = 'kitchen_';
-export const SERVICE_ROOM_PREFIX: string = 'service_';
-export const RESTAURANT_ROOM_PREFIX: string = 'restaurant_';
-export const TABLE_ROOM_PREFIX: string = 'table_';
+const CUSTOMER_ROOM_PREFIX: string = 'customer_';
+const STAFF_ROOM_PREFIX: string = 'staff_';
+const KITCHEN_ROOM_PREFIX: string = 'kitchen_';
+const SERVICE_ROOM_PREFIX: string = 'service_';
+const RESTAURANT_ROOM_PREFIX: string = 'restaurant_';
 
 interface AuthenticatedSocket extends Socket {
   userType: UserType;
-  userId?: ID; // staff
+  userId: TelegramId; 
+  role?: StaffRole;
   restaurantId?: ID;
-  telegramId?: string; // customer
 }
 
 interface SocketUser {
-  id: ID;
+  id: TelegramId;
   type: UserType;
   restaurantId?: ID;
   rooms: Set<string>;
@@ -52,28 +50,9 @@ class WebSocketServer {
     this.io.use(async (socket: any, next) => {
       try {
         // Check for token in handshake auth
-        const token = socket.handshake.auth.token;
         const initDataRaw = socket.handshake.auth.initDataRaw || socket.handshake.headers.authorization?.split(' ')[1];
 
-        if (token) {
-          // JWT token authentication
-          const decoded = jwt.verify(token, config.jwtSecret) as any;
-          
-          if (decoded.staffId) {
-            const staffData = await queries.staff.getStaffByTelegramId(decoded.telegramId);
-            if (!staffData || !staffData.staff.isActive) {
-              return next(new NotFoundError('Staff not found or inactive'));
-            }
-            
-            socket.userType = UserType.Staff;
-            socket.userId = staffData.staff.id;
-            socket.restaurantId = staffData.staff.restaurantId;
-            socket.telegramId = staffData.staff.telegramId.toString();
-            
-          } else {
-            return next(new UnprocessableError('Invalid token'));
-          }
-        } else if (initDataRaw) {
+        if (initDataRaw) {
           // Telegram init data authentication
           validate(initDataRaw, config.telegramBotToken, {
             expiresIn: 3600,
@@ -84,9 +63,15 @@ class WebSocketServer {
             return next(new NotFoundError('No user data in init data'));
           }
 
-          socket.userType = UserType.General;
-          socket.telegramId = user.id.toString();
+          socket.userType = 'general';
+          socket.userId = BigInt(user.id);
 
+          let staff = await queries.staff.getStaffByTelegramId(socket.userId);
+          if (staff) {
+            socket.userType = 'staff';
+            socket.role = staff.role;
+            socket.restaurantId = staff.restaurantId;
+          }
         } else {
           logWarning('WebSocket connection attempted without authentication', { 
             socketId: socket.id,
@@ -117,7 +102,7 @@ class WebSocketServer {
   }
 
   private handleConnection(socket: AuthenticatedSocket) {
-    const userId = socket.userId || socket.telegramId;
+    const userId = socket.userId;
     const userType = socket.userType;
     const restaurantId = socket.restaurantId!;
 
@@ -130,7 +115,7 @@ class WebSocketServer {
 
     // Store user connection
     this.connectedUsers.set(socket.id, {
-      id: userId!,
+      id: userId,
       type: userType,
       restaurantId,
       rooms: new Set(),
@@ -142,22 +127,7 @@ class WebSocketServer {
     // Handle authentication message (for runtime auth changes)
     socket.on(WS_EVENTS.AUTHENTICATE, async (data) => {
       try {
-        if (data.token) {
-          // Re-authenticate with JWT token
-          const decoded = jwt.verify(data.token, config.jwtSecret) as any;
-          
-          if (decoded.staffId) {
-            const staffData = await queries.staff.getStaffByTelegramId(decoded.telegramId);
-            if (staffData && staffData.staff.isActive) {
-              socket.userId = staffData.staff.id;
-              socket.userType = UserType.Staff;
-              socket.restaurantId = staffData.staff.restaurantId;
-              socket.telegramId = staffData.staff.telegramId.toString();
-              this.updateUserConnection(socket);
-              this.autoJoinRooms(socket);
-            }
-          }
-        } else if (data.initDataRaw) {
+        if (data.initDataRaw) {
           // Re-authenticate with Telegram init data
           validate(data.initDataRaw, config.telegramBotToken, {
             expiresIn: 3600, // 1hr
@@ -165,8 +135,15 @@ class WebSocketServer {
 
           const { user } = parse(data.initDataRaw);
           if (user) {
-            socket.userType = UserType.General;
-            socket.telegramId = user.id.toString();
+            socket.userType = 'general';
+            socket.userId = BigInt(user.id);
+
+            let staff = await queries.staff.getStaffByTelegramId(socket.userId);
+            if (staff) {
+              socket.userType = 'staff';
+              socket.role = staff.role;
+              socket.restaurantId = staff.restaurantId;
+            }
             this.updateUserConnection(socket);
             this.autoJoinRooms(socket);
           }
@@ -217,12 +194,12 @@ class WebSocketServer {
   }
 
   private updateUserConnection(socket: AuthenticatedSocket) {
-    const userId = socket.userId || socket.telegramId;
+    const userId = socket.userId;
     const userType = socket.userType;
     const restaurantId = socket.restaurantId!;
 
     this.connectedUsers.set(socket.id, {
-      id: userId!,
+      id: userId,
       type: userType,
       restaurantId,
       rooms: new Set(),
@@ -230,11 +207,12 @@ class WebSocketServer {
   }
 
   private autoJoinRooms(socket: AuthenticatedSocket) {
-    const userType = socket.userType!;
-    const userId = socket.userId!;
+    const userType = socket.userType;
+    const userId = socket.userId;
+    const staffRole = socket.role!;
     const restaurantId = socket.restaurantId;
 
-    if (userType === UserType.General) {
+    if (userType === 'general') {
       // Customers join their personal room for order updates
       const customerRoom = `${CUSTOMER_ROOM_PREFIX}${userId}`;
       socket.join(customerRoom);
@@ -245,28 +223,50 @@ class WebSocketServer {
         room: customerRoom,
       });
       
-    } else if (userType === UserType.Staff && restaurantId) {
-      // Staff join restaurant room for order updates
-      const restaurantRoom = `${RESTAURANT_ROOM_PREFIX}${restaurantId}`;
-      socket.join(restaurantRoom);
-      this.connectedUsers.get(socket.id)?.rooms.add(restaurantRoom);
-      
-      // Kitchen staff also join kitchen room
-      const kitchenRoom = `${KITCHEN_ROOM_PREFIX}${restaurantId}`;
-      socket.join(kitchenRoom);
-      this.connectedUsers.get(socket.id)?.rooms.add(kitchenRoom);
-      
-      logInfo('Staff auto-joined restaurant rooms', {
-        socketId: socket.id,
-        rooms: [restaurantRoom, kitchenRoom],
-      });
+    } else if (userType === 'staff' && restaurantId) {
+      switch (staffRole) {
+        case 'admin':
+        case 'manager':
+          // admin and manager join restaurant room for order updates
+          const restaurantRoom = `${RESTAURANT_ROOM_PREFIX}${restaurantId}`;
+          socket.join(restaurantRoom);
+          this.connectedUsers.get(socket.id)?.rooms.add(restaurantRoom);
+          
+          logInfo('Admin or manager auto-joined restaurant rooms', {
+            socketId: socket.id,
+            rooms: [restaurantRoom],
+          });
+          break;
+        case 'kitchen': 
+          // Kitchen staff join kitchen room
+          const kitchenRoom = `${KITCHEN_ROOM_PREFIX}${restaurantId}`;
+          socket.join(kitchenRoom);
+          this.connectedUsers.get(socket.id)?.rooms.add(kitchenRoom);
+          
+          logInfo('Kitchen staff auto-joined restaurant rooms', {
+            socketId: socket.id,
+            rooms: [kitchenRoom],
+          });
+          break;
+        case 'service':
+          // Service staff join service room
+          const serviceRoom = `${SERVICE_ROOM_PREFIX}${restaurantId}`;
+          socket.join(serviceRoom);
+          this.connectedUsers.get(socket.id)?.rooms.add(serviceRoom);
+          
+          logInfo('Service staff auto-joined restaurant rooms', {
+            socketId: socket.id,
+            rooms: [serviceRoom],
+          });
+          break;
+      }
     }
   }
 
   private handleJoinRoom(socket: AuthenticatedSocket, data: { room: string; password?: string }) {
     const { room } = data;
-    const userId = socket.userId!;
-    const userType = socket.userType!;
+    const userId = socket.userId;
+    const userType = socket.userType;
     
     // Validate room access
     if (!this.canJoinRoom(socket, room)) {
@@ -292,7 +292,7 @@ class WebSocketServer {
 
   private handleLeaveRoom(socket: AuthenticatedSocket, data: { room: string }) {
     const { room } = data;
-    const userId = socket.userId!;
+    const userId = socket.userId;
 
     socket.leave(room);
     this.connectedUsers.get(socket.id)?.rooms.delete(room);
@@ -319,20 +319,21 @@ class WebSocketServer {
   }
 
   private canJoinRoom(socket: AuthenticatedSocket, room: string): boolean {
-    const userType = socket.userType!;
-    const userId = socket.userId!;
+    const userType = socket.userType;
+    const userId = socket.userId;
+    const staffRole = socket.role!;
     const restaurantId = socket.restaurantId;
 
     // Customer can only join their own room
-    if (userType === UserType.General) {
+    if (userType === 'general') {
       return room === `${CUSTOMER_ROOM_PREFIX}${userId}`;
     }
 
     // Staff can join restaurant and kitchen rooms for their restaurant
-    if (userType === UserType.Staff && restaurantId) {
-      return room === `${RESTAURANT_ROOM_PREFIX}${restaurantId}` || 
-             room === `${KITCHEN_ROOM_PREFIX}${restaurantId}` ||
-             room.startsWith(`${TABLE_ROOM_PREFIX}${restaurantId}_`);
+    if (userType === 'staff' && restaurantId) {
+      return (['admin', 'manager'].includes(staffRole) && room === `${RESTAURANT_ROOM_PREFIX}${restaurantId}`) || 
+             (staffRole === 'kitchen' && room === `${KITCHEN_ROOM_PREFIX}${restaurantId}`) ||
+             (staffRole === 'service' && room === `${SERVICE_ROOM_PREFIX}${restaurantId}`);
     }
 
     return false;
@@ -349,7 +350,7 @@ class WebSocketServer {
     });
   }
 
-  public broadcastToUser(userId: ID, userType: UserType, event: string, data: any) {
+  public broadcastToUser(userId: TelegramId, userType: UserType, event: string, data: any) {
     const room = userType === 'general' ? `${CUSTOMER_ROOM_PREFIX}${userId}` : `${STAFF_ROOM_PREFIX}${userId}`;
     this.broadcastToRoom(room, event, data);
   }
@@ -360,6 +361,10 @@ class WebSocketServer {
 
   public broadcastToKitchen(restaurantId: ID, event: string, data: any) {
     this.broadcastToRoom(`${KITCHEN_ROOM_PREFIX}${restaurantId}`, event, data);
+  }
+
+  public broadcastToService(restaurantId: ID, event: string, data: any) {
+    this.broadcastToRoom(`${SERVICE_ROOM_PREFIX}${restaurantId}`, event, data);
   }
 
   public getConnectedUsers(): Array<{ socketId: string; user: SocketUser }> {
@@ -374,6 +379,7 @@ class WebSocketServer {
     const usersByType = {
       general: 0,
       staff: 0,
+      super_admin: 0,
     };
 
     this.connectedUsers.forEach(user => {
@@ -403,29 +409,24 @@ export const getWebSocketServer = (): WebSocketServer => {
   return wsServer;
 };
 
-// Convenience functions for broadcasting
-export const broadcastOrderUpdate = (target: string, event: string, data: any) => {
-  if (!wsServer) return;
-  
-  if (target.startsWith(CUSTOMER_ROOM_PREFIX)) {
-    wsServer.broadcastToRoom(target, event, data);
-  } else if (target.startsWith(RESTAURANT_ROOM_PREFIX) || target.includes('-')) {
-    // Handle restaurant ID directly
-    wsServer.broadcastToRestaurant(target.replace(RESTAURANT_ROOM_PREFIX, ''), event, data);
-  } else {
-    // Assume it's a restaurant ID
-    wsServer.broadcastToRestaurant(target, event, data);
-  }
-};
-
-export const broadcastKitchenUpdate = (restaurantId: string, event: string, data: any) => {
+export const broadcastKitchenUpdate = (restaurantId: ID, event: string, data: any) => {
   if (!wsServer) return;
   wsServer.broadcastToKitchen(restaurantId, event, data);
 };
 
-export const notifyCustomer = (customerId: string, event: string, data: any) => {
+export const broadcastServiceUpdate = (restaurantId: ID, event: string, data: any) => {
   if (!wsServer) return;
-  wsServer.broadcastToUser(customerId, UserType.General, event, data);
+  wsServer.broadcastToService(restaurantId, event, data);
+};
+
+export const broadcastRestaurantUpdate = (restaurantId: ID, event: string, data: any) => {
+  if (!wsServer) return;
+  wsServer.broadcastToRestaurant(restaurantId, event, data);
+};
+
+export const notifyCustomer = (customerId: TelegramId, event: string, data: any) => {
+  if (!wsServer) return;
+  wsServer.broadcastToUser(customerId, 'general', event, data);
 };
 
 export default WebSocketServer;

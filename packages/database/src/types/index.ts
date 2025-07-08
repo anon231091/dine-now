@@ -40,8 +40,6 @@ export type OrderDataDto = z.infer<typeof validators.OrderData>;
 export type CreateOrderDto = z.infer<typeof validators.CreateOrder>;
 export type UpdateOrderStatusDto = z.infer<typeof validators.UpdateOrderStatus>;
 
-export type UpsertKitchenLoadDto = z.infer<typeof validators.UpsertKitchenLoad>;
-
 export type StaffQuery = z.infer<typeof validators.StaffQuery>;
 export type MenuSearchQuery = z.infer<typeof validators.MenuSearch>;
 export type OrderSearchQuery = z.infer<typeof validators.OrderSearch>;

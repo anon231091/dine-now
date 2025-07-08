@@ -195,19 +195,6 @@ export const orderItems = pgTable('order_items', {
   menuItemIdx: index('order_items_menu_item_idx').on(table.menuItemId),
 }));
 
-// Kitchen load tracking
-export const kitchenLoads = pgTable('kitchen_loads', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  restaurantId: uuid('restaurant_id').notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
-  currentOrders: integer('current_orders').notNull().default(0),
-  averagePreparationTime: integer('average_preparation_time').notNull().default(15),
-  lastUpdated: timestamp('last_updated').notNull().defaultNow(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => ({
-  restaurantIdx: index('kitchen_loads_restaurant_idx').on(table.restaurantId),
-  lastUpdatedIdx: index('kitchen_loads_last_updated_idx').on(table.lastUpdated),
-}));
-
 // Relations
 export const restaurantsRelations = relations(restaurants, ({ many }) => ({
   staff: many(staff),
@@ -296,13 +283,6 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   }),
 }));
 
-export const kitchenLoadsRelations = relations(kitchenLoads, ({ one }) => ({
-  restaurant: one(restaurants, {
-    fields: [kitchenLoads.restaurantId],
-    references: [restaurants.id],
-  }),
-}));
-
 // Export all tables for migrations
 export const schema = {
   staff,
@@ -314,7 +294,6 @@ export const schema = {
   menuItemVariants,
   orders,
   orderItems,
-  kitchenLoads,
   // Relations
   restaurantsRelations,
   tablesRelations,
@@ -325,5 +304,4 @@ export const schema = {
   menuItemVariantsRelations,
   ordersRelations,
   orderItemsRelations,
-  kitchenLoadsRelations,
 };

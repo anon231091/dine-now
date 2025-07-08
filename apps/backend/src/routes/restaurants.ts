@@ -320,7 +320,7 @@ router.get(
     logInfo('Fetching kitchen status', { restaurantId });
 
     // Get current kitchen load
-    const kitchenLoad = await queries.kitchen.getKitchenLoad(restaurantId!);
+    const kitchenLoad = await queries.order.getKitchenLoad(restaurantId!);
     
     // Get active orders for more context
     const activeOrders = await queries.order.getActiveOrdersForKitchen(restaurantId!);
@@ -381,7 +381,7 @@ router.get(
   requireRole(['admin', 'manager']),
   asyncHandler(async (req: AuthenticatedRequest, res: Response<ApiResponse<Analytics>>) => {
     const { restaurantId } = req.params;
-    const { dateFrom, dateTo, granularity } = req.query as any;
+    const { dateFrom, dateTo } = req.query as any;
 
     logInfo('Fetching restaurant analytics', { restaurantId, dateFrom, dateTo });
 

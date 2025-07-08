@@ -573,20 +573,7 @@ export const seedDatabase = async () => {
       .returning();
     console.log(`✅ Inserted ${insertedVariants.length} menu item variants`);
 
-    // 8. Seed kitchen loads
-    console.log('👨‍🍳 Seeding kitchen loads...');
-    const kitchenLoads = insertedRestaurants.map(restaurant => ({
-      restaurantId: restaurant.id,
-      currentOrders: Math.floor(Math.random() * 8) + 2, // 2-10 current orders
-      averagePreparationTime: Math.floor(Math.random() * 10) + 15, // 15-25 minutes
-    }));
-    const insertedLoads = await db
-      .insert(schema.kitchenLoads)
-      .values(kitchenLoads)
-      .returning();
-    console.log(`✅ Inserted ${insertedLoads.length} kitchen load records`);
-
-    // 9. Seed sample orders
+    // 8. Seed sample orders
     console.log('📝 Seeding sample orders...');
     const orders: any[] = [];
     const orderItems: any[] = [];
@@ -680,7 +667,6 @@ export const seedDatabase = async () => {
     console.log(`- ${insertedCategories.length} menu categories`);
     console.log(`- ${insertedMenuItems.length} menu items`);
     console.log(`- ${insertedVariants.length} menu item variants`);
-    console.log(`- ${insertedLoads.length} kitchen load records`);
     console.log(`- ${insertedOrders.length} sample orders`);
 
   } catch (error) {
@@ -699,7 +685,6 @@ export const clearDatabase = async () => {
     // Delete in reverse order due to foreign keys
     await db.delete(schema.orderItems);
     await db.delete(schema.orders);
-    await db.delete(schema.kitchenLoads);
     await db.delete(schema.menuItemVariants);
     await db.delete(schema.menuItems);
     await db.delete(schema.menuCategories);

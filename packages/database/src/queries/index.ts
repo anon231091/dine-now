@@ -26,7 +26,6 @@ import type {
   OrderDetailsWithInfo,
   OrderWithInfo,
   OrderWithTable,
-  KitchenLoad,
   KitchenLoadInfo,
   OrderStats,
   PopularItem,
@@ -1098,97 +1097,46 @@ export const orderQueries = {
       table: transformDatabaseRow<Table>(row.table)
     }))
   },
-};
 
-// Kitchen load queries
-export const kitchenQueries = {
-  // Get current kitchen load
+  // Calculate kitchen load from active orders
   getKitchenLoad: async (restaurantId: ID): Promise<KitchenLoadInfo> => {
     const db = getDatabase();
-    const result = await db
-      .select({
-        currentOrders: schema.kitchenLoads.currentOrders,
-        averagePreparationTime: schema.kitchenLoads.averagePreparationTime,
-        lastUpdated: schema.kitchenLoads.lastUpdated
-      })
-      .from(schema.kitchenLoads)
-      .where(eq(schema.kitchenLoads.restaurantId, restaurantId))
-      .orderBy(desc(schema.kitchenLoads.lastUpdated))
-      .limit(1);
-    
-    return result[0] ? transformDatabaseRow(result[0]) : calculateKitchenLoad(restaurantId);
-  },
 
-  // Update kitchen load, insert if not exist
-  upsertKitchenLoad: async (restaurantId: ID): Promise<KitchenLoad | undefined> => {
-    const db = getDatabase();
-    const data = await calculateKitchenLoad(restaurantId);
-
-    // Try to update existing record
-    const [updated] = await db
-      .update(schema.kitchenLoads)
-      .set({
-        ...data,
-        lastUpdated: new Date(),
-      })
-      .where(eq(schema.kitchenLoads.restaurantId, restaurantId))
-      .returning();
+    // Count active orders
+    const [orderCount] = await db
+      .select({ count: count() })
+      .from(schema.orders)
+      .where(and(
+        eq(schema.orders.restaurantId, restaurantId),
+        inArray(schema.orders.status, ['pending', 'confirmed', 'preparing'])
+      ));
     
-    if (updated) {
-      return transformDatabaseRow(updated);
-    }
+    // Calculate average preparation time from recent completed orders
+    const recentOrders = await db
+      .select({ actualPreparationMinutes: schema.orders.actualPreparationMinutes })
+      .from(schema.orders)
+      .where(and(
+        eq(schema.orders.restaurantId, restaurantId),
+        eq(schema.orders.status, 'served'),
+        gte(schema.orders.servedAt, sql`NOW() - INTERVAL '24 hours'`)
+      ))
+      .limit(50);
     
-    // Create new record if none exists
-    const [created] = await db
-      .insert(schema.kitchenLoads)
-      .values({
-        restaurantId,
-        ...data,
-      })
-      .returning();
+    const validPreparationTimes = recentOrders
+      .map(o => o.actualPreparationMinutes)
+      .filter((time): time is number => time !== null);
     
-    return created ? transformDatabaseRow(created) : undefined;
-  },
+    const averagePreparationTime = validPreparationTimes.length > 0
+      ? Math.round(validPreparationTimes.reduce((sum, time) => sum + time, 0) / validPreparationTimes.length)
+      : 15; // Default to 15 minutes
+    
+    return {
+      currentOrders: orderCount?.count || 0,
+      averagePreparationTime,
+      lastUpdated: new Date()
+    };
+  }
 };
-
-// Calculate kitchen load from active orders
-const calculateKitchenLoad = async (restaurantId: ID): Promise<KitchenLoadInfo> => {
-  const db = getDatabase();
-
-  // Count active orders
-  const [orderCount] = await db
-    .select({ count: count() })
-    .from(schema.orders)
-    .where(and(
-      eq(schema.orders.restaurantId, restaurantId),
-      inArray(schema.orders.status, ['pending', 'confirmed', 'preparing'])
-    ));
-  
-  // Calculate average preparation time from recent completed orders
-  const recentOrders = await db
-    .select({ actualPreparationMinutes: schema.orders.actualPreparationMinutes })
-    .from(schema.orders)
-    .where(and(
-      eq(schema.orders.restaurantId, restaurantId),
-      eq(schema.orders.status, 'served'),
-      gte(schema.orders.servedAt, sql`NOW() - INTERVAL '24 hours'`)
-    ))
-    .limit(50);
-  
-  const validPreparationTimes = recentOrders
-    .map(o => o.actualPreparationMinutes)
-    .filter((time): time is number => time !== null);
-  
-  const averagePreparationTime = validPreparationTimes.length > 0
-    ? Math.round(validPreparationTimes.reduce((sum, time) => sum + time, 0) / validPreparationTimes.length)
-    : 15; // Default to 15 minutes
-  
-  return {
-    currentOrders: orderCount?.count || 0,
-    averagePreparationTime,
-    lastUpdated: new Date()
-  };
-}
 
 // Analytics queries updated for variants
 export const analyticsQueries = {
@@ -1283,6 +1231,5 @@ export const queries = {
   order: orderQueries,
   staff: staffQueries,
   telegramGroup: telegramGroupQueries,
-  kitchen: kitchenQueries,
   analytics: analyticsQueries,
 };

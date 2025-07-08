@@ -25,7 +25,7 @@ import {
   hasRestaurantAccess,
 } from '../middleware';
 import { logInfo } from '../utils/logger';
-import { broadcastOrderUpdate, CUSTOMER_ROOM_PREFIX, SERVICE_ROOM_PREFIX } from '../websocket';
+import { broadcastKitchenUpdate, broadcastServiceUpdate, notifyCustomer } from '../websocket';
 import { getBotNotifier } from '../services/bot-notifier';
 
 // Validate status transition
@@ -116,7 +116,7 @@ router.post(
     }
 
     // Get kitchen load for more accurate timing
-    const kitchenLoad = await queries.kitchen.getKitchenLoad(table.restaurantId);
+    const kitchenLoad = await queries.order.getKitchenLoad(table.restaurantId);
     const loadMultiplier = kitchenLoad ? (kitchenLoad.currentOrders * 0.1) + 1 : 1;
     const estimatedPreparationMinutes = Math.ceil(totalPreparationTime * loadMultiplier);
 
@@ -137,11 +137,8 @@ router.post(
     });
     if (!order) throw new ServerError('Failed to place order');
 
-    // Update kitchen load
-    await queries.kitchen.upsertKitchenLoad(table.restaurantId);
-
     // Broadcast to restaurant staff
-    broadcastOrderUpdate(table.restaurantId, WS_EVENTS.NEW_ORDER, order);
+    broadcastKitchenUpdate(table.restaurantId, WS_EVENTS.NEW_ORDER, order);
 
     // Notify bot service about new order
     const botNotifier = getBotNotifier();
@@ -306,11 +303,9 @@ router.patch(
     const updatedOrder = await queries.order.updateOrderStatus(currentOrder.id, req.body);
 
     // Update kitchen load if order is completed or cancelled
-    if (status === 'served' || status === 'cancelled') {
-      await queries.kitchen.upsertKitchenLoad(currentOrder.restaurantId);
-    } else if (status === 'ready') {
+    if (status === 'ready') {
       // Broadcast to service staff to notify food ready to served
-      broadcastOrderUpdate(`${SERVICE_ROOM_PREFIX}${currentOrder.restaurantId}`, WS_EVENTS.ORDER_STATUS_UPDATE, {
+      broadcastServiceUpdate(currentOrder.restaurantId, WS_EVENTS.ORDER_STATUS_UPDATE, {
         orderId: currentOrder.id,
         status,
         order: updatedOrder,
@@ -318,7 +313,7 @@ router.patch(
     }
 
     // Broadcast to customer
-    broadcastOrderUpdate(`${CUSTOMER_ROOM_PREFIX}${currentOrder.customerTelegramId}`, WS_EVENTS.ORDER_STATUS_UPDATE, {
+    notifyCustomer(currentOrder.customerTelegramId, WS_EVENTS.ORDER_STATUS_UPDATE, {
       orderId: currentOrder.id,
       status,
       order: updatedOrder,

@@ -2,7 +2,7 @@ import { createSchemaFactory } from 'drizzle-zod';
 import { z } from 'zod/v4';
 import {
   restaurants, tables, staff, menuCategories, menuItems, menuItemVariants,
-  itemSizeEnum, telegramGroups, orders, orderItems, kitchenLoads, staffRoleEnum,
+  itemSizeEnum, telegramGroups, orders, orderItems, staffRoleEnum,
   orderStatusEnum
 } from '../schema';
 import { BUSINESS_RULES, REGEX } from '@dine-now/shared';
@@ -214,17 +214,6 @@ const UpdateOrderStatusSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
-// Kitchen Load API schemas
-const UpsertKitchenLoadSchema = createInsertSchema(kitchenLoads, {
-  restaurantId: IdSchema,
-  currentOrders: (schema) => schema.min(0),
-  averagePreparationTime: (schema) => schema.min(0),
-}).omit({
-  id: true,
-  createdAt: true,
-  lastUpdated: true,
-});
-
 // Search and filter schemas
 const StaffQuerySchema = z.object({
   role: z.enum(staffRoleEnum.enumValues).optional(),
@@ -362,8 +351,6 @@ export const validators = {
   OrderData: OrderDataSchema,
   CreateOrder: CreateOrderSchema,
   UpdateOrderStatus: UpdateOrderStatusSchema,
-  
-  UpsertKitchenLoad: UpsertKitchenLoadSchema,
   
   StaffQuery: StaffQuerySchema,
   MenuSearch: MenuSearchSchema,
