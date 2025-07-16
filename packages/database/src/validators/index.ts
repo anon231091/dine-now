@@ -164,7 +164,6 @@ const OrderItemInputSchema = createInsertSchema(orderItems, {
   menuItemId: IdSchema,
   variantId: IdSchema,
   quantity: (schema) => schema.min(1).max(BUSINESS_RULES.MAX_PER_ITEM),
-  notes: (schema) => schema.max(200).optional(),
 })
 .omit({
   id: true,

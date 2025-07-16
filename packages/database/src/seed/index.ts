@@ -640,7 +640,6 @@ export const seedDatabase = async () => {
           variantId: variant.id,
           quantity,
           spiceLevel: ['none', 'regular', 'spicy'][Math.floor(Math.random() * 3)],
-          notes: j === 0 && i === 0 ? 'Extra crispy please' : undefined,
           subtotal: subtotal.toFixed(2),
         });
       }

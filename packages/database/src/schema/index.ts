@@ -188,7 +188,6 @@ export const orderItems = pgTable('order_items', {
   variantId: uuid('variant_id').notNull().references(() => menuItemVariants.id), // Reference to specific variant
   quantity: integer('quantity').notNull().default(1),
   spiceLevel: spiceLevelEnum('spice_level').default('none'),
-  notes: text('notes'),
   subtotal: decimal('subtotal', { precision: 10, scale: 2 }).notNull(),
 }, (table) => ({
   orderIdx: index('order_items_order_idx').on(table.orderId),

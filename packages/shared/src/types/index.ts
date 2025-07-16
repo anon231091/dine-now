@@ -133,7 +133,6 @@ export interface OrderItem {
   variantId: ID;
   quantity: number;
   spiceLevel?: SpiceLevel;
-  notes?: string;
   unitPrice: number;
   subtotal: number;
   menuItem?: MenuItem;
