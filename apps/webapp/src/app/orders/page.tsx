@@ -16,7 +16,6 @@ import {
 import { Clock, MapPin, Receipt, ArrowRight } from 'lucide-react';
 import { useOrderHistory } from '../../lib/api';
 import { OrderWithInfo } from '@dine-now/shared';
-import { Page } from '@/components/Page';
 import { getStatusColor } from '@/helpers';
 
 export default function OrderHistoryPage() {
@@ -33,87 +32,79 @@ export default function OrderHistoryPage() {
 
   if (isLoading) {
     return (
-      <Page>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <Spinner size="l" />
-            <p className="mt-4 text-[--tg-theme-hint-color]">
-              {t('Loading order history')}...
-            </p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Spinner size="l" />
+          <p className="mt-4 text-[--tg-theme-hint-color]">
+            {t('Loading order history')}...
+          </p>
         </div>
-      </Page>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Page>
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <Placeholder
-            header={t('Something went wrong')}
-            description={t('Unable to load order history')}
-          >
-            <Button mode="filled" onClick={() => router.refresh()}>
-              {t('Try Again')}
-            </Button>
-          </Placeholder>
-        </div>
-      </Page>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Placeholder
+          header={t('Something went wrong')}
+          description={t('Unable to load order history')}
+        >
+          <Button mode="filled" onClick={() => router.refresh()}>
+            {t('Try Again')}
+          </Button>
+        </Placeholder>
+      </div>
     );
   }
 
   if (orders.length === 0) {
     return (
-      <Page>
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <Placeholder
-            header={t('No Orders Yet')}
-            description={t("You haven't placed any orders yet")}
-          >
-            <Receipt className="w-12 h-12 text-[--tg-theme-hint-color]" />
-          </Placeholder>
-        </div>
-      </Page>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Placeholder
+          header={t('No Orders Yet')}
+          description={t("You haven't placed any orders yet")}
+        >
+          <Receipt className="w-12 h-12 text-[--tg-theme-hint-color]" />
+        </Placeholder>
+      </div>
     );
   }
 
   return (
-    <Page>
-      <div className="min-h-screen bg-[--tg-theme-bg-color]">
-        {/* Header */}
-        <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4 z-10">
-          <Title level="1" className="text-center text-[--tg-theme-text-color]">
-            {t('Order History')}
-          </Title>
-        </div>
-
-        {/* Orders List */}
-        <div className="p-4 space-y-3">
-          {orders.map((order: any) => (
-            <OrderCard
-              key={order.order.id}
-              order={order}
-              onOrderClick={handleOrderClick}
-            />
-          ))}
-        </div>
-
-        {/* Load More Button */}
-        {orders.length >= 10 && (
-          <div className="p-4">
-            <Button
-              mode="outline"
-              size="l"
-              stretched
-              onClick={() => setPage(page + 1)}
-            >
-              {t('Load More')}
-            </Button>
-          </div>
-        )}
+    <div className="min-h-screen bg-[--tg-theme-bg-color]">
+      {/* Header */}
+      <div className="sticky top-0 bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4 z-10">
+        <Title level="1" className="text-center text-[--tg-theme-text-color]">
+          {t('Order History')}
+        </Title>
       </div>
-    </Page>
+
+      {/* Orders List */}
+      <div className="p-4 space-y-3">
+        {orders.map((order: any) => (
+          <OrderCard
+            key={order.order.id}
+            order={order}
+            onOrderClick={handleOrderClick}
+          />
+        ))}
+      </div>
+
+      {/* Load More Button */}
+      {orders.length >= 10 && (
+        <div className="p-4">
+          <Button
+            mode="outline"
+            size="l"
+            stretched
+            onClick={() => setPage(page + 1)}
+          >
+            {t('Load More')}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 

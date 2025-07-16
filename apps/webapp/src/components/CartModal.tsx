@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations, useFormatter, useLocale } from 'next-intl';
 import { 
   Modal,
@@ -14,8 +16,7 @@ import { Minus, Plus, Trash2, ShoppingBag, Clock, CheckCircle } from 'lucide-rea
 import { useCartStore, useRestaurantStore } from '@/store';
 import { useCreateOrder } from '@/lib/api';
 import { MenuItemVariant, SpiceLevel } from '@dine-now/shared';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCartMainButton } from '@/hooks/useMainButton';
 
 interface CartModalProps {
   isOpen: boolean;
@@ -24,9 +25,11 @@ interface CartModalProps {
 
 export function CartModal({ isOpen, onClose }: CartModalProps) {
   const locale = useLocale();
-  const t = useTranslations('CartDrawer');
+  const t = useTranslations('CartModal');
   const format = useFormatter();
+
   const { items, totalAmount, estimatedTime, updateItem, removeItem, clearCart, getCartSummary } = useCartStore();
+  const { setOrderButton, hideMainButton } = useCartMainButton();
   const { currentTable } = useRestaurantStore();
   const router = useRouter();
   
@@ -34,6 +37,20 @@ export function CartModal({ isOpen, onClose }: CartModalProps) {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const createOrder = useCreateOrder();
   const cartSummary = getCartSummary();
+
+  useEffect(() => {
+    if (isOpen && items.length > 0) {
+      setOrderButton({
+        totalAmount,
+        onPlaceOrder: handlePlaceOrder,
+        formatter: format,
+        isLoading: isPlacingOrder,
+        isEnabled: !!currentTable
+      });
+    } else {
+      hideMainButton();
+    }
+  }, [isOpen, totalAmount, isPlacingOrder]);
 
   const handleQuantityChange = (index: number, delta: number) => {
     const item = items[index];

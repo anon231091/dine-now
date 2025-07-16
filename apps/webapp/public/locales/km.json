@@ -18,7 +18,8 @@
     "min": "នាទី",
     "Out of Stock": "អស់ពីស្តុក",
     "No sizes available": "គ្មានទំហំដែលអាចប្រើបាន",
-    "View Order": "មើលការបញ្ជាទិញ"
+    "View Order": "មើលការបញ្ជាទិញ",
+    "Order": "បញ្ជាទិញ"
   },
   "MenuItemModal": {
     "Item Unavailable": "មុខម្ហូបមិនអាចប្រើបាន",
@@ -46,28 +47,34 @@
     "regular": "ធម្មតា",
     "large": "ធំ"
   },
-  "CartDrawer": {
-    "Your order is empty": "ការបញ្ជាទិញរបស់អ្នកទទេ",
+  "CartModal": {
+    "Your cart is empty": "ការបញ្ជាទិញរបស់អ្នកទទេ",
     "Add some delicious items to get started": "បន្ថែមមុខម្ហូបឆ្ងាញ់ៗដើម្បីចាប់ផ្តើម",
     "Your Order": "ការបញ្ជាទិញរបស់អ្នក",
     "items": "មុខម្ហូប",
     "Size:": "ទំហំ៖",
     "each": "ម្តង",
-    "Special Instructions": "ការណែនាំពិសេស",
-    "Any special requests for your order...": "សំណើពិសេសណាមួយសម្រាប់ការបញ្ជាទិញរបស់អ្នក...",
+    "Order Notes": "កំណត់ចំណាំការបញ្ជាទិញ",
+    "Add notes for your order...": "បន្ថែមកំណត់ចំណាំសម្រាប់ការបញ្ជាទិញរបស់អ្នក...",
+    "Subtotal": "សរុបរង",
     "Est. Time": "ពេលវេលាប៉ាន់ស្មាន",
     "mins": "នាទី",
     "Total": "សរុប",
     "Place Order": "បញ្ជាទិញ",
     "Placing Order...": "កំពុងបញ្ជាទិញ...",
-    "Continue Browsing": "បន្តរកមើល",
-    "Order placement failed:": "ការបញ្ជាទិញបរាជ័យ៖"
+    "Continue Shopping": "បន្តការទិញ",
+    "Use the green button below to place your order": "ប្រើប៊ូតុងពណ៌បៃតងខាងក្រោមដើម្បីបញ្ជាទិញ",
+    "Order placement failed:": "ការបញ្ជាទិញបរាជ័យ៖",
+    "No Spice": "មិនហឹរ",
+    "Regular": "ធម្មតា",
+    "Spicy": "ហឹរ",
+    "Very Spicy": "ហឹរណាស់"
   },
   "OrderTrackingPage": {
     "Loading order": "កំពុងផ្ទុកការបញ្ជាទិញ",
     "Order Not Found": "រកមិនឃើញការបញ្ជាទិញ",
     "This order could not be found": "រកមិនឃើញការបញ្ជាទិញនេះទេ",
-    "Back to Menu": "ត្រលប់ទៅម៉ឺនុយ",
+    "Go Home": "ទៅទំព័រដើម",
     "Connection unstable - Updates may be delayed": "ការតភ្ជាប់មិនស្ថិរ - ការធ្វើបច្ចុប្បន្នភាពអាចយឺត",
     "Status updated": "ស្ថានភាពបានធ្វើបច្ចុប្បន្នភាព",
     "Order": "ការបញ្ជាទិញ",
@@ -81,9 +88,9 @@
     "Order Received": "បានទទួលការបញ្ជាទិញ",
     "Kitchen Confirmed": "ផ្ទះបាយបានបញ្ជាក់",
     "Cooking Your Food": "កំពុងចម្អិនម្ហូបរបស់អ្នក",
-    "Ready to Serve": "រួចរាល់សម្រាប់បម្រើ",
+    "Ready for Serve": "រួចរាល់សម្រាប់បម្រើ",
     "Enjoy Your Meal!": "សូមរីករាយជាមួយម្ហូប!",
-    "Your Order": "ការបញ្ជាទិញរបស់អ្នក",
+    "Your order": "ការបញ្ជាទិញរបស់អ្នក",
     "Special Instructions:": "ការណែនាំពិសេស៖",
     "Total": "សរុប",
     "Order Again": "បញ្ជាទិញម្តងទៀត",

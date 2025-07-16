@@ -18,7 +18,8 @@
     "min": "min",
     "Out of Stock": "Out of Stock",
     "No sizes available": "No sizes available",
-    "View Order": "View Order"
+    "View Order": "View Order",
+    "Order": "Order"
   },
   "MenuItemModal": {
     "Item Unavailable": "Item Unavailable",
@@ -46,28 +47,34 @@
     "regular": "Regular",
     "large": "Large"
   },
-  "CartDrawer": {
-    "Your order is empty": "Your order is empty",
+  "CartModal": {
+    "Your cart is empty": "Your cart is empty",
     "Add some delicious items to get started": "Add some delicious items to get started",
     "Your Order": "Your Order",
     "items": "items",
     "Size:": "Size:",
     "each": "each",
-    "Special Instructions": "Special Instructions",
-    "Any special requests for your order...": "Any special requests for your order...",
+    "Order Notes": "Order Notes",
+    "Add notes for your order...": "Add notes for your order...",
+    "Subtotal": "Subtotal",
     "Est. Time": "Est. Time",
     "mins": "mins",
     "Total": "Total",
     "Place Order": "Place Order",
     "Placing Order...": "Placing Order...",
-    "Continue Browsing": "Continue Browsing",
-    "Order placement failed:": "Order placement failed:"
+    "Continue Shopping": "Continue Shopping",
+    "Use the green button below to place your order": "Use the green button below to place your order",
+    "Order placement failed:": "Order placement failed:",
+    "No Spice": "No Spice",
+    "Regular": "Regular",
+    "Spicy": "Spicy",
+    "Very Spicy": "Very Spicy"
   },
   "OrderTrackingPage": {
     "Loading order": "Loading order",
     "Order Not Found": "Order Not Found",
     "This order could not be found": "This order could not be found",
-    "Back to Menu": "Back to Menu",
+    "Go Home": "Go Home",
     "Connection unstable - Updates may be delayed": "Connection unstable - Updates may be delayed",
     "Status updated": "Status updated",
     "Order": "Order",
@@ -81,9 +88,9 @@
     "Order Received": "Order Received",
     "Kitchen Confirmed": "Kitchen Confirmed",
     "Cooking Your Food": "Cooking Your Food",
-    "Ready to Serve": "Ready to Serve",
+    "Ready for Serve": "Ready for Serve",
     "Enjoy Your Meal!": "Enjoy Your Meal!",
-    "Your Order": "Your Order",
+    "Your order": "Your order",
     "Special Instructions:": "Special Instructions:",
     "Total": "Total",
     "Order Again": "Order Again",

@@ -18,8 +18,8 @@ import { useRestaurantStore, useCartStore } from '@/store';
 import { MenuItem, MenuCategory, MenuItemVariant, MenuItemDetails } from '@dine-now/shared';
 import { getDefaultVariant } from '@/helpers';
 import { MenuItemModal } from './MenuItemModal';
-import { Page } from './Page';
 import { CartModal } from './CartModal';
+import { useCartMainButton } from '@/hooks/useMainButton';
 
 export function MenuView() {
   const locale = useLocale();
@@ -27,6 +27,7 @@ export function MenuView() {
   const format = useFormatter();
   const { currentRestaurant, currentTable } = useRestaurantStore();
   const { getCartSummary } = useCartStore();
+  const { setCartButton, hideMainButton } = useCartMainButton();
   
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<(MenuItemDetails & { defaultVariant?: MenuItemVariant }) | null>(null);
@@ -42,24 +43,17 @@ export function MenuView() {
 
   // Set up Telegram main button for cart
   useEffect(() => {
-    if (mainButton.setParams.isAvailable()) {
-      if (cartSummary.totalItems > 0) {
-        mainButton.setParams({
-          text: `${t('Order')} (${cartSummary.totalItems}) • ${format.number(cartSummary.totalAmount, 'currency')}`,
-          isVisible: true,
-          isEnabled: true
-        });
-      } else {
-        mainButton.setParams({ isVisible: false });
-      }
+    if (cartSummary.totalItems > 0) {
+      setCartButton({
+        itemCount: cartSummary.totalItems,
+        totalAmount: cartSummary.totalAmount,
+        onViewCart: () => setShowCart(true),
+        formatter: format
+      });
+    } else {
+      hideMainButton();
     }
-  }, [cartSummary, t, format]);
-
-  useEffect(() => {
-    if (mainButton.onClick.isAvailable()) {
-      return mainButton.onClick(() => setShowCart(true));
-    }
-  }, [])
+  }, [cartSummary, format]);
 
   // Set initial category
   useEffect(() => {
@@ -96,115 +90,109 @@ export function MenuView() {
 
   if (isLoading) {
     return (
-      <Page back={false}>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <Spinner size="l" />
-            <p className="mt-4 text-[--tg-theme-hint-color]">{t('Loading menu')}...</p>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Spinner size="l" />
+          <p className="mt-4 text-[--tg-theme-hint-color]">{t('Loading menu')}...</p>
         </div>
-      </Page>
+      </div>
     );
   }
 
   if (menuData.length === 0) {
     return (
-      <Page back={false}>
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <Placeholder
-            header="Menu Not Available"
-            description="This restaurant's menu is currently unavailable. Please try again later."
-          />
-        </div>
-      </Page>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Placeholder
+          header="Menu Not Available"
+          description="This restaurant's menu is currently unavailable. Please try again later."
+        />
+      </div>
     );
   }
 
   return (
-    <Page back={false}>
-      <div className="min-h-screen bg-[--tg-theme-bg-color]">
-        {/* Restaurant Header - Similar to Physical Menu */}
-        <div className="bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4">
-          <div className="text-center mb-3">
-            <Title level="1" className="text-[--tg-theme-text-color] mb-1">
-              {locale === 'km' && currentRestaurant?.nameKh 
-                ? currentRestaurant.nameKh 
-                : currentRestaurant?.name}
-            </Title>
-            <Caption level="1" className="text-[--tg-theme-hint-color]">
-              {t('Table')} {currentTable?.number}
-            </Caption>
-          </div>
-          
-          {/* Kitchen Status */}
-          {kitchenStatus?.data?.data && (
-            <div className="flex items-center justify-center space-x-4 text-sm">
-              <div className="flex items-center space-x-1">
-                <Clock className="w-4 h-4 text-[--tg-theme-hint-color]" />
-                <Caption level="1" className="text-[--tg-theme-hint-color]">
-                  ~{kitchenStatus.data.data.estimatedWaitTime} {t('mins')}
-                </Caption>
-              </div>
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <div className="flex items-center space-x-1">
-                <Users className="w-4 h-4 text-[--tg-theme-hint-color]" />
-                <Caption level="1" className="text-[--tg-theme-hint-color]">
-                  {kitchenStatus.data.data.activeOrdersCount} {t('orders ahead')}
-                </Caption>
-              </div>
+    <div className="min-h-screen bg-[--tg-theme-bg-color]">
+      {/* Restaurant Header - Similar to Physical Menu */}
+      <div className="bg-[--tg-theme-bg-color] border-b border-[--tg-theme-separator-color] p-4">
+        <div className="text-center mb-3">
+          <Title level="1" className="text-[--tg-theme-text-color] mb-1">
+            {locale === 'km' && currentRestaurant?.nameKh 
+              ? currentRestaurant.nameKh 
+              : currentRestaurant?.name}
+          </Title>
+          <Caption level="1" className="text-[--tg-theme-hint-color]">
+            {t('Table')} {currentTable?.number}
+          </Caption>
+        </div>
+        
+        {/* Kitchen Status */}
+        {kitchenStatus?.data?.data && (
+          <div className="flex items-center justify-center space-x-4 text-sm">
+            <div className="flex items-center space-x-1">
+              <Clock className="w-4 h-4 text-[--tg-theme-hint-color]" />
+              <Caption level="1" className="text-[--tg-theme-hint-color]">
+                ~{kitchenStatus.data.data.estimatedWaitTime} {t('mins')}
+              </Caption>
             </div>
-          )}
-        </div>
-
-        {/* Category Navigation - Horizontal Scroll */}
-        <div className="bg-[--tg-theme-secondary-bg-color] border-b border-[--tg-theme-separator-color]">
-          <div className="flex overflow-x-auto p-2 space-x-2">
-            {categories.map((category: MenuCategory) => (
-              <button
-                key={category.id}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  selectedCategory === category.id
-                    ? 'bg-[--tg-theme-link-color] text-[--tg-theme-button-text-color]'
-                    : 'bg-[--tg-theme-bg-color] text-[--tg-theme-text-color] border border-[--tg-theme-separator-color]'
-                }`}
-                onClick={() => setSelectedCategory(category.id)}
-              >
-                {getCategoryName(category)}
-              </button>
-            ))}
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <div className="flex items-center space-x-1">
+              <Users className="w-4 h-4 text-[--tg-theme-hint-color]" />
+              <Caption level="1" className="text-[--tg-theme-hint-color]">
+                {kitchenStatus.data.data.activeOrdersCount} {t('orders ahead')}
+              </Caption>
+            </div>
           </div>
-        </div>
-
-        {/* Menu Items - Physical Menu Style */}
-        <div className="p-4">
-          <div className="space-y-1">
-            {currentCategoryItems.map((item: MenuItem & { variants: MenuItemVariant[] }) => (
-              <MenuItemCard
-                key={item.id}
-                item={item}
-                onSelect={() => setSelectedItem(item)}
-                getItemName={getItemName}
-                getItemDescription={getItemDescription}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Modals */}
-        {selectedItem && (
-          <MenuItemModal
-            item={selectedItem}
-            isOpen={!!selectedItem}
-            onClose={() => setSelectedItem(null)}
-          />
         )}
-
-        <CartModal 
-          isOpen={showCart} 
-          onClose={() => setShowCart(false)} 
-        />
       </div>
-    </Page>
+
+      {/* Category Navigation - Horizontal Scroll */}
+      <div className="bg-[--tg-theme-secondary-bg-color] border-b border-[--tg-theme-separator-color]">
+        <div className="flex overflow-x-auto p-2 space-x-2">
+          {categories.map((category: MenuCategory) => (
+            <button
+              key={category.id}
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                selectedCategory === category.id
+                  ? 'bg-[--tg-theme-link-color] text-[--tg-theme-button-text-color]'
+                  : 'bg-[--tg-theme-bg-color] text-[--tg-theme-text-color] border border-[--tg-theme-separator-color]'
+              }`}
+              onClick={() => setSelectedCategory(category.id)}
+            >
+              {getCategoryName(category)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Menu Items - Physical Menu Style */}
+      <div className="p-4">
+        <div className="space-y-1">
+          {currentCategoryItems.map((item: MenuItem & { variants: MenuItemVariant[] }) => (
+            <MenuItemCard
+              key={item.id}
+              item={item}
+              onSelect={() => setSelectedItem(item)}
+              getItemName={getItemName}
+              getItemDescription={getItemDescription}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Modals */}
+      {selectedItem && (
+        <MenuItemModal
+          item={selectedItem}
+          isOpen={!!selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
+
+      <CartModal 
+        isOpen={showCart} 
+        onClose={() => setShowCart(false)} 
+      />
+    </div>
   );
 }
 

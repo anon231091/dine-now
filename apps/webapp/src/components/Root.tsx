@@ -5,6 +5,7 @@ import { AppRoot } from '@telegram-apps/telegram-ui';
 import { Toaster } from 'react-hot-toast';
 
 import { useDidMount } from '@/hooks/useDidMount';
+import { BackButtonManager } from './BackButtonManager';
 
 export function Root({ children }: PropsWithChildren) {
   // Unfortunately, Telegram Mini Apps does not allow us to use all features of
@@ -14,6 +15,7 @@ export function Root({ children }: PropsWithChildren) {
 
   return didMount ? (
       <AppRoot> 
+        <BackButtonManager />
         <main className="pb-16">
           {children}
         </main>
