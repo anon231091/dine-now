@@ -5,11 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button, Card, Placeholder, Spinner, Title } from '@telegram-apps/telegram-ui';
 import { initData, useSignal } from '@telegram-apps/sdk-react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, QrCode } from 'lucide-react';
 
 import { useRestaurantByTableId } from '@/lib/api';
 import { useRestaurantStore, useUIStore } from '@/store';
-import { RestaurantSelection } from '@/components/RestaurantSelection';
 import { MenuView } from '@/components/MenuView';
 import { Page } from '@/components/Page';
 
@@ -19,10 +18,10 @@ export default function HomePage() {
   const startParam = useSignal(initData.startParam);
   const searchParams = useSearchParams();
   const user = useSignal(initData.user);
-  const { currentRestaurant } = useRestaurantStore();
+  const { setRestaurant, setTable, clearRestaurant } = useRestaurantStore();
   const { setCurrentPage } = useUIStore();
   
-  const tableId = startParam || searchParams.get('tgWebAppStartParam');
+  const tableId = startParam || searchParams.get('tgWebAppStartParam') || searchParams.get('tableId');
   const { 
     data: restaurantData, 
     isLoading: loadingRestaurant,
@@ -36,10 +35,10 @@ export default function HomePage() {
   useEffect(() => {
     if (restaurantData?.data?.data) {
       const { restaurant, table } = restaurantData.data.data;
-      useRestaurantStore.getState().setRestaurant(restaurant);
-      useRestaurantStore.getState().setTable(table);
+      setRestaurant(restaurant);
+      setTable(table);
     }
-  }, [restaurantData]);
+  }, [restaurantData, setRestaurant, setTable]);
 
   // Show authentication error
   if (!user) {
@@ -64,8 +63,49 @@ export default function HomePage() {
         </div>
       </Page>
     );
-  } else if (loadingRestaurant) {
-    // Show loading while authenticating or loading restaurant data
+  }
+
+  // Show QR code scan prompt if no table ID
+  if (!tableId) {
+    return (
+      <Page back={false}>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <Card className="max-w-sm w-full p-6 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <QrCode className="w-8 h-8 text-blue-600" />
+              </div>
+            </div>
+            
+            <Title level="2" className="text-[--tg-theme-text-color] mb-2">
+              {t('Scan QR Code')}
+            </Title>
+            
+            <p className="text-[--tg-theme-hint-color] mb-4">
+              {t('Please scan the QR code on your table to start ordering')}
+            </p>
+            
+            <Button 
+              mode="filled" 
+              size="l" 
+              stretched
+              onClick={() => {
+                // For development/testing - allow manual table selection
+                if (process.env.NODE_ENV === 'development') {
+                  router.push('?tableId=demo-table-001');
+                }
+              }}
+            >
+              {process.env.NODE_ENV === 'development' ? t('Demo Mode') : t('Scan QR Code')}
+            </Button>
+          </Card>
+        </div>
+      </Page>
+    );
+  }
+
+  // Show loading while authenticating or loading restaurant data
+  if (loadingRestaurant) {
     return (
       <Page back={false}>
         <div className="flex items-center justify-center min-h-screen">
@@ -78,8 +118,10 @@ export default function HomePage() {
         </div>
       </Page>
     );
-  } else if (restaurantError) {
-    // Show restaurant error
+  }
+
+  // Show error if table/restaurant not found
+  if (restaurantError || !restaurantData?.data?.data) {
     return (
       <Page back={false}>
         <div className="min-h-screen flex items-center justify-center p-4">
@@ -90,21 +132,19 @@ export default function HomePage() {
             <Button 
               mode="filled" 
               onClick={() => {
-                useRestaurantStore.getState().clearRestaurant();
-                router.refresh();
+                // Clear current data and try again
+                clearRestaurant();
+                router.push('/');
               }}
             >
-              {t('Start Over')}
+              {t('Try Again')}
             </Button>
           </Placeholder>
         </div>
       </Page>
     );
-  } else if (currentRestaurant) {
-    // Show main menu view if restaurant is selected
-    return <MenuView />;
-  } else {
-    // Fallback to restaurant selection
-    return <RestaurantSelection />;
   }
+
+  // Show main menu view if restaurant is selected
+  return <MenuView />;
 }

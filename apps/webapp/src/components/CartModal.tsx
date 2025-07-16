@@ -10,21 +10,19 @@ import {
   Placeholder,
   Input
 } from '@telegram-apps/telegram-ui';
-import { Minus, Plus, Trash2, ShoppingBag, Clock } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, Clock, CheckCircle } from 'lucide-react';
 import { useCartStore, useRestaurantStore } from '@/store';
 import { useCreateOrder } from '@/lib/api';
-import { getSpiceLevelText } from '@dine-now/shared';
-import { formatVariantName } from '@/helpers';
+import { MenuItemVariant, SpiceLevel } from '@dine-now/shared';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Locale } from '@/i18n/types';
 
-interface CartDrawerProps {
+interface CartModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
+export function CartModal({ isOpen, onClose }: CartModalProps) {
   const locale = useLocale();
   const t = useTranslations('CartDrawer');
   const format = useFormatter();
@@ -33,6 +31,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const router = useRouter();
   
   const [orderNotes, setOrderNotes] = useState('');
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const createOrder = useCreateOrder();
   const cartSummary = getCartSummary();
 
@@ -53,6 +52,8 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     if (!currentTable || items.length === 0) {
       return;
     }
+    
+    setIsPlacingOrder(true);
 
     try {
       const orderData = {
@@ -87,8 +88,18 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
     return item.menuItem.name;
   };
 
-  const getVariantDisplayName = (variant: any) => {
-    return formatVariantName(variant, locale as Locale) || t(variant.size);
+  const getVariantDisplayName = (variant: MenuItemVariant) => {
+    if (locale === 'km' && variant.nameKh) {
+      return variant.nameKh;
+    }
+    return variant.name || variant.size || t('Regular');
+  };
+
+  const spiceLevelOptions: { [key in SpiceLevel ]: {label: string; emoji: string;} } = {
+    'none': { label: t('No Spice'), emoji: '' },
+    'regular': { label: t('Regular'), emoji: '🌶️' },
+    'spicy': { label: t('Spicy'), emoji: '🌶️🌶️' },
+    'very_spicy': { label: t('Very Spicy'), emoji: '🌶️🌶️🌶️' },
   };
 
   if (items.length === 0) {
@@ -124,82 +135,71 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         </div>
 
         {/* Cart Items */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           {items.map((item, index) => (
-            <Card key={`${item.menuItem.id}-${item.variant.id}-${index}`} className="p-4">
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <Title level="3" className="text-[--tg-theme-text-color] mb-1">
+            <Card key={`${item.menuItem.id}-${item.variant.id}-${index}`} className="p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between mb-2">
+                    <Title level="3" className="text-[--tg-theme-text-color] text-sm">
                       {getItemName(item)}
                     </Title>
-                    
-                    <div className="space-y-1">
-                      {/* Variant/Size Information */}
-                      <Caption level="1" className="text-[--tg-theme-hint-color]">
-                        {t('Size:')} {getVariantDisplayName(item.variant)}
-                      </Caption>
-                      
-                      {/* Price per unit */}
-                      <Caption level="1" className="text-[--tg-theme-hint-color]">
-                        {format.number(item.variant.price, 'currency')} {t('each')}
-                      </Caption>
-                      
-                      {/* Spice Level */}
+                    <Button
+                      mode="plain"
+                      size="s"
+                      onClick={() => handleRemoveItem(index)}
+                      className="text-[--tg-theme-destructive-text-color] ml-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1 text-xs text-[--tg-theme-hint-color]">
+                      <div>{t('Size:')} {getVariantDisplayName(item.variant)}</div>
                       {item.spiceLevel && item.spiceLevel !== 'none' && (
-                        <Caption level="1" className="text-[--tg-theme-hint-color]">
-                          {t('Spice:')} {getSpiceLevelText(item.spiceLevel)}
-                        </Caption>
-                      )}
-                      
-                      {/* Special Notes */}
-                      {item.notes && (
-                        <Caption level="1" className="text-[--tg-theme-hint-color] italic">
-                          {t('Notes:')} {item.notes}
-                        </Caption>
+                        <div>{spiceLevelOptions[item.spiceLevel].label}</div>
                       )}
                     </div>
+                    
+                    <div className="text-right">
+                      <Caption level="1" className="text-[--tg-theme-link-color] font-medium">
+                        {format.number(item.subtotal, 'currency')}
+                      </Caption>
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Quantity Controls */}
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-[--tg-theme-separator-color]">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    mode="outline"
+                    size="s"
+                    disabled={item.quantity <= 1}
+                    onClick={() => handleQuantityChange(index, -1)}
+                  >
+                    <Minus className="w-3 h-3" />
+                  </Button>
+                  
+                  <span className="text-[--tg-theme-text-color] font-medium min-w-[2rem] text-center text-sm">
+                    {item.quantity}
+                  </span>
                   
                   <Button
-                    mode="plain"
+                    mode="outline"
                     size="s"
-                    onClick={() => handleRemoveItem(index)}
-                    className="text-[--tg-theme-destructive-text-color]"
+                    disabled={item.quantity >= 10}
+                    onClick={() => handleQuantityChange(index, 1)}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Plus className="w-3 h-3" />
                   </Button>
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Button
-                      mode="outline"
-                      size="s"
-                      disabled={item.quantity <= 1}
-                      onClick={() => handleQuantityChange(index, -1)}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    
-                    <span className="text-[--tg-theme-text-color] font-medium min-w-[2rem] text-center">
-                      {item.quantity}
-                    </span>
-                    
-                    <Button
-                      mode="outline"
-                      size="s"
-                      disabled={item.quantity >= 10}
-                      onClick={() => handleQuantityChange(index, 1)}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  
-                  <Title level="3" className="text-[--tg-theme-link-color]">
-                    {format.number(item.subtotal, 'currency')}
-                  </Title>
-                </div>
+                
+                <Caption level="1" className="text-[--tg-theme-hint-color]">
+                  {format.number(item.variant.price, 'currency')} {t('each')}
+                </Caption>
               </div>
             </Card>
           ))}
@@ -261,11 +261,14 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             mode="filled"
             size="l"
             stretched
-            loading={createOrder.isPending}
+            loading={isPlacingOrder}
             disabled={!currentTable || items.length === 0}
             onClick={handlePlaceOrder}
           >
-            {t('Place Order')} • {format.number(totalAmount, 'currency')}
+            <>
+              <CheckCircle className="w-5 h-5 mr-2" />
+              {t('Place Order')} • {format.number(totalAmount, 'currency')}
+            </>
           </Button>
           
           <Button

@@ -1,5 +1,3 @@
-import type { SpiceLevel, OrderStatus } from '../types';
-
 // Order utilities
 export const generateOrderNumber = (): string => {
   const now = new Date();
@@ -25,28 +23,6 @@ export const estimatePreparationTime = (
   const loadMultiplier = Math.max(1, kitchenLoad * 0.2); // Kitchen load factor
   
   return Math.ceil((baseTime + (quantity - 1) * timePerItem) * loadMultiplier);
-};
-
-export const getOrderStatusText = (status: OrderStatus): string => {
-  const texts = {
-    ['pending']: 'Pending',
-    ['confirmed']: 'Confirmed',
-    ['preparing']: 'Preparing',
-    ['ready']: 'Ready',
-    ['served']: 'Served',
-    ['cancelled']: 'Cancelled'
-  };
-  return texts[status] || 'Unknown';
-};
-
-export const getSpiceLevelText = (level: SpiceLevel): string => {
-  const texts = {
-    ['none']: 'No Spice',
-    ['regular']: 'Regular 🌶️🌶️',
-    ['spicy']: 'Spicy 🌶️🌶️🌶️',
-    ['very_spicy']: 'Very Spicy 🌶️🌶️🌶️🌶️'
-  };
-  return texts[level] || 'No Spice';
 };
 
 // Array utilities

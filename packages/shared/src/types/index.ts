@@ -135,8 +135,8 @@ export interface OrderItem {
   spiceLevel?: SpiceLevel;
   unitPrice: number;
   subtotal: number;
-  menuItem?: MenuItem;
-  variant?: MenuItemVariant;
+  menuItem: MenuItem;
+  variant: MenuItemVariant;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

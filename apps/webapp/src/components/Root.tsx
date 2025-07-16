@@ -5,7 +5,6 @@ import { AppRoot } from '@telegram-apps/telegram-ui';
 import { Toaster } from 'react-hot-toast';
 
 import { useDidMount } from '@/hooks/useDidMount';
-import { BottomNavigation } from '@/components/Navigation';
 
 export function Root({ children }: PropsWithChildren) {
   // Unfortunately, Telegram Mini Apps does not allow us to use all features of
@@ -18,7 +17,6 @@ export function Root({ children }: PropsWithChildren) {
         <main className="pb-16">
           {children}
         </main>
-        <BottomNavigation />
         <Toaster
           position="top-center"
           toastOptions={{
@@ -46,6 +44,11 @@ export function Root({ children }: PropsWithChildren) {
         />
       </AppRoot>
   ): (
-    <div className="root__loading">Loading</div>
+    <div className="root__loading flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[--tg-theme-link-color] mx-auto mb-4"></div>
+        <p className="text-[--tg-theme-hint-color]">Loading...</p>
+      </div>
+    </div>
   );
 }

@@ -15,12 +15,12 @@ import {
 } from '@telegram-apps/telegram-ui';
 import { Clock, MapPin, Receipt, ArrowRight } from 'lucide-react';
 import { useOrderHistory } from '../../lib/api';
-import { Currency, getOrderStatusText, Order, Restaurant } from '@dine-now/shared';
+import { OrderWithInfo } from '@dine-now/shared';
 import { Page } from '@/components/Page';
+import { getStatusColor } from '@/helpers';
 
 export default function OrderHistoryPage() {
   const router = useRouter();
-  const format = useFormatter();
   const t = useTranslations('OrderHistoryPage');
   
   const [page, setPage] = useState(1);
@@ -29,31 +29,6 @@ export default function OrderHistoryPage() {
 
   const handleOrderClick = (orderId: string) => {
     router.push(`/order/${orderId}`);
-  };
-
-  const formatDatetime = (dateTime: Date) => format.dateTime(dateTime, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-  })
-
-  const formatCurrency = (amount: number, currency: Currency) => format.number(amount, {
-    style: 'currency',
-    currency,
-  })
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'warning';
-      case 'confirmed': return 'primary';
-      case 'preparing': return 'warning';
-      case 'ready': return 'primary';
-      case 'served': return 'primary';
-      case 'cancelled': return 'critical';
-      default: return 'secondary';
-    }
   };
 
   if (isLoading) {
@@ -120,9 +95,6 @@ export default function OrderHistoryPage() {
               key={order.order.id}
               order={order}
               onOrderClick={handleOrderClick}
-              formatDatetime={formatDatetime}
-              formatCurrency={formatCurrency}
-              getStatusColor={getStatusColor}
             />
           ))}
         </div>
@@ -147,21 +119,16 @@ export default function OrderHistoryPage() {
 
 // Order Card Component
 interface OrderCardProps {
-  order: { order: Order, restaurant: Restaurant };
+  order: OrderWithInfo;
   onOrderClick: (orderId: string) => void;
-  formatDatetime: (datetime: Date) => string;
-  formatCurrency: (amount: number, currency: Currency) => string;
-  getStatusColor: (status: string) => string;
 }
 
 function OrderCard({ 
-  order: { order, restaurant }, 
-  onOrderClick, 
-  formatDatetime,
-  formatCurrency,
-  getStatusColor 
+  order: { restaurant, ...order }, 
+  onOrderClick,
 }: OrderCardProps) {
   const t = useTranslations('OrderHistoryPage');
+  const format = useFormatter();
 
   return (
     <Card 
@@ -176,7 +143,7 @@ function OrderCard({
                 #{order.orderNumber}
               </Title>
               <Badge type='dot' mode={getStatusColor(order.status) as any}>
-                {getOrderStatusText(order.status)}
+                {order.status}
               </Badge>
             </div>
             
@@ -184,7 +151,7 @@ function OrderCard({
               <div className="flex items-center space-x-1">
                 <Clock className="w-4 h-4 text-[--tg-theme-hint-color]" />
                 <Caption level="1" className="text-[--tg-theme-hint-color]">
-                  {formatDatetime(order.createdAt)}
+                  {format.dateTime(order.createdAt, 'datetime')}
                 </Caption>
               </div>
             </div>
@@ -200,17 +167,17 @@ function OrderCard({
             {restaurant.name}
           </Subheadline>
           <Caption level="1" className="text-[--tg-theme-hint-color]">
-            • {t('Table Number')} {order.table?.number}
+            • {t('Table Number')} {order.table.number}
           </Caption>
         </div>
 
         {/* Order Summary */}
         <div className="flex items-center justify-between">
           <Caption level="1" className="text-[--tg-theme-hint-color]">
-            {order.orderItems.length} {t('items')}
+            {order.orderNumber}
           </Caption>
           <Title level="3" className="text-[--tg-theme-link-color]">
-            {formatCurrency(order.totalAmount, order.currency)}
+            {format.number(order.totalAmount, 'currency')}
           </Title>
         </div>
       </div>

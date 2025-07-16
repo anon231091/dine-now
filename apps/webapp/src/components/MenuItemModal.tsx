@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslations, useFormatter, useLocale } from 'next-intl';
 import { 
   Modal,
@@ -8,19 +8,16 @@ import {
   Title,
   Subheadline,
   Caption,
-  Input,
-  Select,
   Card
 } from '@telegram-apps/telegram-ui';
 import { Minus, Plus, Clock, X } from 'lucide-react';
-import { MenuItem, MenuItemVariant, SpiceLevel } from '@dine-now/shared';
+import { MenuItemDetails, MenuItemVariant, SpiceLevel } from '@dine-now/shared';
 import { useCartStore } from '@/store';
-import { getDefaultVariant, getVariantPrice, formatVariantName } from '@/helpers';
+import { getDefaultVariant } from '@/helpers';
 import toast from 'react-hot-toast';
-import { Locale } from '@/i18n/types';
 
 interface MenuItemModalProps {
-  item: MenuItem & { variants: MenuItemVariant[]; defaultVariant?: MenuItemVariant };
+  item: MenuItemDetails & { defaultVariant?: MenuItemVariant };
   isOpen: boolean;
   onClose: () => void;
 }
@@ -30,13 +27,9 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
   const locale = useLocale();
   const format = useFormatter();
   
-  // Initialize with default variant
-  const defaultVariant = getDefaultVariant(item) || item.variants?.[0];
-  
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariant, setSelectedVariant] = useState<MenuItemVariant | null>(defaultVariant);
-  const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<SpiceLevel>(SpiceLevel.NONE);
-  const [notes, setNotes] = useState('');
+  const [selectedVariant, setSelectedVariant] = useState<MenuItemVariant>(getDefaultVariant(item));
+  const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<SpiceLevel>('none');
   
   const { addItem } = useCartStore();
 
@@ -54,8 +47,14 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
     return item.description;
   };
 
-  const currentPrice = selectedVariant ? getVariantPrice(selectedVariant) : 0;
-  const totalPrice = currentPrice * quantity;
+  const getVariantDisplayName = (variant: MenuItemVariant) => {
+    if (locale === 'km' && variant.nameKh) {
+      return variant.nameKh;
+    }
+    return variant.name || variant.size || t('Regular');
+  };
+
+  const totalPrice = useMemo(() => selectedVariant.price * quantity, [selectedVariant, quantity]);
 
   const handleQuantityChange = (delta: number) => {
     const newQuantity = Math.max(1, Math.min(10, quantity + delta));
@@ -63,7 +62,7 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
   };
 
   const handleVariantChange = (variantId: string) => {
-    const variant = item.variants?.find(v => v.id === variantId);
+    const variant = item.variants.find(v => v.id === variantId);
     if (variant) {
       setSelectedVariant(variant);
     }
@@ -90,7 +89,6 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
       variant: selectedVariant,
       quantity,
       spiceLevel: selectedSpiceLevel,
-      notes: notes.trim() || undefined,
     });
 
     toast.success(
@@ -99,12 +97,12 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
     onClose();
   };
 
-  const spiceLevelOptions = [
-    { value: SpiceLevel.NONE, label: t('No Spice') },
-    { value: SpiceLevel.REGULAR, label: t('Regular') },
-    { value: SpiceLevel.SPICY, label: t('Spicy') },
-    { value: SpiceLevel.VERY_SPICY, label: t('Very Spicy') },
-  ];
+  const spiceLevelOptions: { [key in SpiceLevel ]: {label: string; emoji: string;} } = {
+    'none': { label: t('No Spice'), emoji: '' },
+    'regular': { label: t('Regular'), emoji: '🌶️' },
+    'spicy': { label: t('Spicy'), emoji: '🌶️🌶️' },
+    'very_spicy': { label: t('Very Spicy'), emoji: '🌶️🌶️🌶️' },
+  };
 
   if (!item.variants || item.variants.length === 0) {
     return (
@@ -169,84 +167,64 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
             </Caption>
           </div>
           <Title level="3" className="text-[--tg-theme-link-color]">
-            {format.number(currentPrice, 'currency')}
+            {format.number(selectedVariant.price, 'currency')}
           </Title>
         </div>
 
         {/* Size/Variant Selection */}
-        <Card className="p-4">
-          <Title level="3" className="text-[--tg-theme-text-color] mb-3">
-            {t('Size')}
-          </Title>
-          <div className="space-y-2">
-            {item.variants.map((variant) => (
-              <button
-                key={variant.id}
-                disabled={!variant.isAvailable}
-                className={`w-full p-3 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  selectedVariant?.id === variant.id
-                    ? 'border-[--tg-theme-link-color] bg-[--tg-theme-link-color]/10'
-                    : 'border-[--tg-theme-separator-color] hover:bg-[--tg-theme-secondary-bg-color]'
-                }`}
-                onClick={() => handleVariantChange(variant.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-[--tg-theme-text-color] font-medium">
-                      {formatVariantName(variant, locale as Locale) || t(variant.size)}
-                    </span>
-                    {variant.isDefault && (
-                      <Badge className="text-xs bg-[--tg-theme-link-color] text-white px-2 py-1 rounded">
-                        {t('Default')}
-                      </Badge>
-                    )}
+        {item.variants.length > 1 && (
+          <Card className="p-4">
+            <Title level="3" className="text-[--tg-theme-text-color] mb-3">
+              {t('Size')}
+            </Title>
+            <div className="grid grid-cols-3 gap-2">
+              {item.variants.filter(v => v.isAvailable).map((variant) => (
+                <button
+                  key={variant.id}
+                  className={`p-3 rounded-lg border transition-colors text-center ${
+                    selectedVariant?.id === variant.id
+                      ? 'border-[--tg-theme-link-color] bg-[--tg-theme-link-color]/10'
+                      : 'border-[--tg-theme-separator-color] hover:bg-[--tg-theme-secondary-bg-color]'
+                  }`}
+                  onClick={() => handleVariantChange(variant.id)}
+                >
+                  <div className="text-[--tg-theme-text-color] font-medium text-sm">
+                    {getVariantDisplayName(variant)}
                   </div>
-                  <span className="text-[--tg-theme-hint-color]">
-                    {format.number(getVariantPrice(variant), 'currency')}
-                  </span>
-                </div>
-                {!variant.isAvailable && (
-                  <div className="text-left mt-1">
-                    <Caption level="1" className="text-[--tg-theme-destructive-text-color]">
-                      {t('Not Available')}
-                    </Caption>
+                  <div className="text-[--tg-theme-hint-color] text-xs mt-1">
+                    {format.number(variant.price, 'currency')}
                   </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </Card>
+                </button>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Spice Level */}
         <Card className="p-4">
           <Title level="3" className="text-[--tg-theme-text-color] mb-3">
             {t('Spice Level')}
           </Title>
-          <Select
-            value={selectedSpiceLevel}
-            onChange={(e) => {
-              setSelectedSpiceLevel(e.target.value as SpiceLevel);
-            }}
-          >
-            {spiceLevelOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(spiceLevelOptions).map(([key, option]) => (
+              <button
+                key={key}
+                className={`p-3 rounded-lg border transition-colors text-center ${
+                  selectedSpiceLevel === key
+                    ? 'border-[--tg-theme-link-color] bg-[--tg-theme-link-color]/10'
+                    : 'border-[--tg-theme-separator-color] hover:bg-[--tg-theme-secondary-bg-color]'
+                }`}
+                onClick={() => setSelectedSpiceLevel(key as SpiceLevel)}
+              >
+                <div className="text-[--tg-theme-text-color] font-medium text-sm">
+                  {option.label}
+                </div>
+                {option.emoji && (
+                  <div className="text-lg mt-1">{option.emoji}</div>
+                )}
+              </button>
             ))}
-          </Select>
-        </Card>
-
-        {/* Special Notes */}
-        <Card className="p-4">
-          <Title level="3" className="text-[--tg-theme-text-color] mb-3">
-            {t('Notes')}
-          </Title>
-          <Input
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder={t('Add notes to kitchen...')}
-            maxLength={200}
-          />
+          </div>
         </Card>
 
         {/* Quantity and Add to Cart */}
@@ -295,14 +273,5 @@ export function MenuItemModal({ item, isOpen, onClose }: MenuItemModalProps) {
         </div>
       </div>
     </Modal>
-  );
-}
-
-// Helper Badge component since it might not be available in telegram-ui
-function Badge({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <span className={className}>
-      {children}
-    </span>
   );
 }

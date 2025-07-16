@@ -9,17 +9,17 @@ import {
   Subheadline, 
   Caption, 
   Button,
-  Badge,
   Spinner,
   Placeholder,
 } from '@telegram-apps/telegram-ui';
 import toast from 'react-hot-toast';
-import { Clock, MapPin, CheckCircle, AlertCircle, Bell } from 'lucide-react';
+import { Clock, MapPin, AlertCircle, Bell, Home } from 'lucide-react';
 
 import { useOrder, useWebSocket } from '@/lib/api';
 import { useWebSocketStore } from '@/store';
 import { Page } from '@/components/Page';
-import { Currency, getOrderStatusText, Order, OrderItem, type OrderStatus } from '@dine-now/shared';
+import { ORDER_STATUS, type OrderDetailsWithInfo, type OrderItem, type OrderStatus } from '@dine-now/shared';
+import { getStatusEmoji } from '@/helpers';
 
 export default function OrderTrackingPage() {
   const { orderId } = useParams<{orderId: string}>();
@@ -30,11 +30,10 @@ export default function OrderTrackingPage() {
   
   const { messages, isConnected } = useWebSocketStore();
   const [currentOrderStatus, setCurrentOrderStatus] = useState<OrderStatus | null>(null);
-  const [showStatusUpdate, setShowStatusUpdate] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
   
   const { data: orderResponse, isLoading, error, refetch } = useOrder(orderId);
-  const order = useMemo<Order>(() => orderResponse?.data?.data, [orderResponse]);
+  const order = useMemo<OrderDetailsWithInfo>(() => orderResponse?.data?.data, [orderResponse]);
   
   // Initialize WebSocket for real-time updates
   useWebSocket();
@@ -60,12 +59,10 @@ export default function OrderTrackingPage() {
       if (newStatus !== currentOrderStatus) {
         setCurrentOrderStatus(newStatus);
         setLastUpdateTime(new Date());
-        setShowStatusUpdate(true);
         
         // Show status update notification
-        const statusText = getOrderStatusText(newStatus);
         toast.success(
-          `${t('Status updated')}: ${statusText}`,
+          `${t('Status updated')}: ${newStatus}`,
           {
             icon: '🎉',
             duration: 5000,
@@ -74,9 +71,6 @@ export default function OrderTrackingPage() {
 
         // Refetch order data to get latest information
         refetch();
-
-        // Hide status update banner after 5 seconds
-        setTimeout(() => setShowStatusUpdate(false), 5000);
       }
     }
   }, [messages, order, orderId, currentOrderStatus, refetch, t]);
@@ -92,41 +86,12 @@ export default function OrderTrackingPage() {
     return () => clearInterval(interval);
   }, [order, refetch]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'text-yellow-600';
-      case 'confirmed': return 'text-blue-600';
-      case 'preparing': return 'text-orange-600';
-      case 'ready': return 'text-green-600';
-      case 'served': return 'text-green-700';
-      case 'cancelled': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return <Clock className="w-5 h-5" />;
-      case 'confirmed': return <CheckCircle className="w-5 h-5" />;
-      case 'preparing': return <Clock className="w-5 h-5 animate-pulse" />;
-      case 'ready': return <Bell className="w-5 h-5 animate-bounce" />;
-      case 'served': return <CheckCircle className="w-5 h-5" />;
-      case 'cancelled': return <AlertCircle className="w-5 h-5" />;
-      default: return <Clock className="w-5 h-5" />;
-    }
-  };
-
   const getItemName = (item: OrderItem) => {
-    if (locale === 'km' && item.menuItem?.nameKh) {
+    if (locale === 'km' && item.menuItem.nameKh) {
       return item.menuItem.nameKh;
     }
-    return item.menuItem?.name || t('Unknown Item');
+    return item.menuItem.name || t('Unknown Item');
   };
-
-  const formatPrice = (amount: number, currency: Currency) => format.number(amount, {
-    style: 'currency',
-    currency
-  });
 
   const displayStatus = currentOrderStatus || order?.status || t('pending');
 
@@ -162,21 +127,12 @@ export default function OrderTrackingPage() {
     );
   }
 
+  const isOrderComplete = displayStatus === 'served';
+  const isOrderReady = displayStatus === 'ready';
+
   return (
     <Page>
       <div className="min-h-screen bg-[--tg-theme-bg-color] p-4 space-y-4">
-        {/* Status Update Banner */}
-        {showStatusUpdate && (
-          <div className="fixed top-0 left-0 right-0 bg-green-500 text-white p-3 z-50 animate-slide-down">
-            <div className="flex items-center justify-center space-x-2">
-              <Bell className="w-5 h-5 animate-bounce" />
-              <span className="font-medium">
-                {t('Status Updated')}!
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* WebSocket Connection Status */}
         {!isConnected && (
           <Card className="p-3 bg-yellow-50 border-yellow-200">
@@ -191,131 +147,133 @@ export default function OrderTrackingPage() {
 
         {/* Header */}
         <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <Title level="2" className="text-[--tg-theme-text-color]">
-                {t('Order')} #{order.orderNumber}
-              </Title>
-              <Caption level="1" className="text-[--tg-theme-hint-color]">
-                {format.dateTime(order.createdAt, 'time')}
-                {lastUpdateTime && (
-                  <span className="ml-2">
-                    • {t('Updated')} {format.dateTime(lastUpdateTime, 'time')}
-                  </span>
-                )}
-              </Caption>
+          <div className="text-center space-y-2">
+            <div className="text-4xl mb-2">
+              {getStatusEmoji(displayStatus)}
             </div>
-            <Badge 
-              type='dot'
-              mode={displayStatus === 'served' ? 'primary' : 'secondary'}
-              className={`${getStatusColor(displayStatus)} flex items-center space-x-1`}
-            >
-              {getStatusIcon(displayStatus)}
-              <span>{getOrderStatusText(displayStatus)}</span>
-            </Badge>
+            
+            <Title level="1" className="text-[--tg-theme-text-color]">
+              {displayStatus}
+            </Title>
+            
+            <Caption level="1" className="text-[--tg-theme-hint-color]">
+              {t('Order')} #{order.orderNumber}
+            </Caption>
+
+            {lastUpdateTime && (
+              <Caption level="1" className="text-[--tg-theme-hint-color]">
+                {t('Updated')} {format.dateTime(lastUpdateTime, 'time')}
+              </Caption>
+            )}
           </div>
 
           {/* Restaurant Info */}
-          <div className="flex items-center space-x-3 p-3 bg-[--tg-theme-secondary-bg-color] rounded-lg">
-            <MapPin className="w-5 h-5 text-[--tg-theme-hint-color]" />
-            <div>
+          <div className="flex items-center justify-center space-x-3 mt-4 p-3 bg-[--tg-theme-secondary-bg-color] rounded-lg">
+            <MapPin className="w-4 h-4 text-[--tg-theme-hint-color]" />
+            <div className="text-center">
               <Subheadline level="2" className="text-[--tg-theme-text-color]">
-                {order.restaurant?.name}
+                {order.restaurant.name}
               </Subheadline>
               <Caption level="1" className="text-[--tg-theme-hint-color]">
-                {t('Table')} {order.table?.number}
+                {t('Table')} {order.table.number}
               </Caption>
             </div>
           </div>
         </Card>
 
+        {/* Status Message */}
+        {isOrderReady && (
+          <Card className="p-4 bg-green-50 border-green-200">
+            <div className="text-center">
+              <Bell className="w-8 h-8 text-green-600 mx-auto mb-2 animate-bounce" />
+              <Title level="3" className="text-green-700 mb-1">
+                {t('Your order is ready!')}
+              </Title>
+              <Caption level="1" className="text-green-600">
+                {t('Please wait for our staff to serve your food')}
+              </Caption>
+            </div>
+          </Card>
+        )}
+
+        {/* Estimated Time */}
+        {(displayStatus === 'confirmed' || displayStatus === 'preparing') && (
+          <Card className="p-4 bg-blue-50 border-blue-200">
+            <div className="flex items-center justify-center space-x-2">
+              <Clock className="w-5 h-5 text-blue-600" />
+              <div className="text-center">
+                <Title level="3" className="text-blue-700">
+                  ~{order.estimatedPreparationMinutes} {t('minutes')}
+                </Title>
+                <Caption level="1" className="text-blue-600">
+                  {t('Estimated preparation time')}
+                </Caption>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Order Status Timeline */}
         <Card className="p-4">
-          <Title level="3" className="text-[--tg-theme-text-color] mb-4">
-            {t('Order Status')}
+          <Title level="3" className="text-[--tg-theme-text-color] mb-4 text-center">
+            {t('Order Progress')}
           </Title>
           
-          <div className="space-y-4">
+          <div className="space-y-3">
             <OrderStatusStep
               status="pending"
               currentStatus={displayStatus}
               title={t('Order Received')}
               time={order.createdAt}
+              isActive={displayStatus === 'pending'}
             />
             <OrderStatusStep
               status="confirmed"
               currentStatus={displayStatus}
-              title={t('Order Confirmed')}
+              title={t('Kitchen Confirmed')}
               time={order.confirmedAt}
+              isActive={displayStatus === 'confirmed'}
             />
             <OrderStatusStep
               status="preparing"
               currentStatus={displayStatus}
-              title={t('Preparing')}
+              title={t('Cooking Your Food')}
               time={displayStatus === 'preparing' ? new Date() : undefined}
               isActive={displayStatus === 'preparing'}
             />
             <OrderStatusStep
               status="ready"
               currentStatus={displayStatus}
-              title={t('Ready for Pickup')}
+              title={t('Ready for Serve')}
               time={order.readyAt}
               isActive={displayStatus === 'ready'}
             />
             <OrderStatusStep
               status="served"
               currentStatus={displayStatus}
-              title={t('Served')}
+              title={t('Enjoy Your Meal!')}
               time={order.servedAt}
+              isActive={false}
             />
           </div>
-
-          {/* Estimated Time */}
-          {(displayStatus === 'confirmed' || displayStatus === 'preparing') && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <Caption level="1" className="text-blue-700">
-                  {`${t('Estimated time')}: ${order.estimatedPreparationMinutes} ${t('more minutes')}`}
-                </Caption>
-              </div>
-            </div>
-          )}
-
-          {/* Ready Notification */}
-          {displayStatus === 'ready' && (
-            <div className="mt-4 p-3 bg-green-50 rounded-lg animate-pulse">
-              <div className="flex items-center space-x-2">
-                <Bell className="w-4 h-4 text-green-600 animate-bounce" />
-                <Caption level="1" className="text-green-700 font-medium">
-                  {t('Your order is ready! Please wait for service.')}
-                </Caption>
-              </div>
-            </div>
-          )}
         </Card>
 
         {/* Order Items */}
         <Card className="p-4">
           <Title level="3" className="text-[--tg-theme-text-color] mb-4">
-            {t('Order Items')}
+            {t('Your order')}
           </Title>
           
-          <div className="space-y-3">
-            {order.orderItems?.map((item: OrderItem, index: number) => (
+          <div className="space-y-2">
+            {order.orderItems.map((item: OrderItem, index: number) => (
               <div key={index} className="flex items-center justify-between py-2 border-b border-[--tg-theme-separator-color] last:border-b-0">
                 <div className="flex-1">
                   <Subheadline level="2" className="text-[--tg-theme-text-color]">
                     {item.quantity}x {getItemName(item)}
                   </Subheadline>
-                  {item.notes && (
-                    <Caption level="1" className="text-[--tg-theme-hint-color] italic">
-                      {item.notes}
-                    </Caption>
-                  )}
                 </div>
                 <Caption level="1" className="text-[--tg-theme-text-color] font-medium">
-                  {formatPrice(item.subtotal, order.currency)}
+                  {format.number(item.subtotal, 'currency')}
                 </Caption>
               </div>
             ))}
@@ -324,7 +282,7 @@ export default function OrderTrackingPage() {
           {order.notes && (
             <div className="mt-4 p-3 bg-[--tg-theme-secondary-bg-color] rounded-lg">
               <Caption level="1" className="text-[--tg-theme-hint-color] mb-1">
-                {t('Order Notes:')}
+                {t('Special Instructions:')}
               </Caption>
               <Subheadline level="2" className="text-[--tg-theme-text-color]">
                 {order.notes}
@@ -339,25 +297,35 @@ export default function OrderTrackingPage() {
                 {t('Total')}
               </Title>
               <Title level="2" className="text-[--tg-theme-link-color]">
-                {formatPrice(order.totalAmount, order.currency)}
+                {format.number(order.totalAmount, 'currency')}
               </Title>
             </div>
           </div>
         </Card>
 
         {/* Action Buttons */}
-        {displayStatus !== 'served' && displayStatus !== 'cancelled' && (
-          <div className="space-y-3">
+        <div className="pb-4">
+          {isOrderComplete ? (
+            <Button
+              mode="filled"
+              size="l"
+              stretched
+              onClick={() => router.push('/')}
+            >
+              <Home className="w-5 h-5 mr-2" />
+              {t('Order Again')}
+            </Button>
+          ) : (
             <Button
               mode="outline"
               size="l"
               stretched
               onClick={() => router.push('/')}
             >
-              {t('Order More')}
+              {t('Back to Menu')}
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </Page>
   );
@@ -365,35 +333,37 @@ export default function OrderTrackingPage() {
 
 // Order Status Step Component
 interface OrderStatusStepProps {
-  status: string;
-  currentStatus: string;
+  status: OrderStatus;
+  currentStatus: OrderStatus;
   title: string;
   time?: Date;
-  isActive?: boolean;
+  isActive: boolean;
 }
 
 function OrderStatusStep({ status, currentStatus, title, time, isActive }: OrderStatusStepProps) {
   const format = useFormatter();
-  const statusIndex = ['pending', 'confirmed', 'preparing', 'ready', 'served'].indexOf(status);
-  const currentIndex = ['pending', 'confirmed', 'preparing', 'ready', 'served'].indexOf(currentStatus);
+  const statusIndex = ORDER_STATUS.indexOf(status);
+  const currentIndex = ORDER_STATUS.indexOf(currentStatus);
   
   const isCompleted = statusIndex <= currentIndex;
   const isCurrent = statusIndex === currentIndex;
   
   return (
-    <div className={`flex items-center space-x-3 ${isCompleted ? 'opacity-100' : 'opacity-50'}`}>
-      <div className={`w-3 h-3 rounded-full ${
+    <div className={`flex items-center space-x-3 ${isCompleted ? 'opacity-100' : 'opacity-40'}`}>
+      <div className={`w-4 h-4 rounded-full ${
         isCompleted ? 'bg-green-500' : 'bg-gray-300'
-      } ${isCurrent ? 'ring-2 ring-green-300' : ''} ${isActive ? 'animate-pulse' : ''}`} />
+      } ${isCurrent ? 'ring-2 ring-green-300' : ''} ${isActive ? 'animate-pulse' : ''} flex-shrink-0`} />
       
-      <div className="flex-1">
+      <div className="flex-1 flex items-center justify-between">
         <Subheadline level="2" className={`${
           isCompleted ? 'text-[--tg-theme-text-color]' : 'text-[--tg-theme-hint-color]'
         } ${isActive ? 'font-bold' : ''}`}>
           {title}
         </Subheadline>
         {time && isCompleted && (
-          <Caption level="1" className="text-[--tg-theme-hint-color]">{format.dateTime(time, 'time')}</Caption>
+          <Caption level="1" className="text-[--tg-theme-hint-color]">
+            {format.dateTime(time, 'time')}
+          </Caption>
         )}
       </div>
     </div>

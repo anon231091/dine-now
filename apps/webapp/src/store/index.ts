@@ -7,7 +7,6 @@ import {
   MenuItemVariant,
   Order, 
   SpiceLevel,
-  ItemSize 
 } from '@dine-now/shared';
 
 // Restaurant Store
